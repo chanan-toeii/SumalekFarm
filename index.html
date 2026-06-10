@@ -997,25 +997,15 @@
 
 <script>
 /* ═══════════════════════════════════════════════════════
-   CONFIG
+   CONFIG — Apps Script เป็นทั้ง API read และ write
 ═══════════════════════════════════════════════════════ */
-const SHEET_ID = '1os-AqcxMtw-Ej1WoJ-HyrQnJLSTa41y7SzmXw2mJCmI';
-const BASE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}`;
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeXJJrJpTvU0CAqrgU1SYFBX9rGwWiAwiP-GzQmJ2miPIqiXJJ3kKfoiaBxm0LZqo5ag/exec';
 
-// CSV endpoints (read-only public)
-const CSV = {
-  chickens: `${BASE_URL}/gviz/tq?tqx=out:csv&sheet=Dataพ่อแม่พันธุ์`,
-  hatch: `${BASE_URL}/gviz/tq?tqx=out:csv&sheet=EggHatchingKitData`,
-  expense: `${BASE_URL}/gviz/tq?tqx=out:csv&sheet=Expense`,
-  revenue: `${BASE_URL}/gviz/tq?tqx=out:csv&sheet=Revenue`,
-};
-
-// Google Forms for writing (you'll need to create these — placeholders below)
-// Replace with actual form action URLs from your Google Forms
-const FORMS = {
-  hatch: null,    // Fill in Google Form URL
-  expense: null,  // Fill in Google Form URL
-  revenue: null,  // Fill in Google Form URL
+const SHEET_NAMES = {
+  chickens: 'Dataพ่อแม่พันธุ์',
+  hatch:    'EggHatchingKitData',
+  expense:  'Expense',
+  revenue:  'Revenue',
 };
 
 /* In-memory data store for this session */
@@ -1066,37 +1056,18 @@ function doLogout() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   CSV PARSER
+   FETCH FROM APPS SCRIPT
 ═══════════════════════════════════════════════════════ */
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (!lines.length) return [];
-  const header = parseCSVLine(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = parseCSVLine(line);
-    const obj = {};
-    header.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
-    return obj;
-  });
-}
-
-function parseCSVLine(line) {
-  const result = []; let cur = ''; let inQ = false;
-  for (let c of line) {
-    if (c === '"') inQ = !inQ;
-    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
-    else cur += c;
-  }
-  result.push(cur);
-  return result;
-}
-
-async function fetchCSV(url) {
+async function fetchSheet(sheetName) {
   try {
+    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
     const res = await fetch(url);
-    const text = await res.text();
-    return parseCSV(text);
-  } catch {
+    const json = await res.json();
+    if (!Array.isArray(json)) return [];
+    // กรองแถวที่ว่างทั้งหมดออก
+    return json.filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined));
+  } catch (err) {
+    console.error('fetchSheet error:', sheetName, err);
     return [];
   }
 }
@@ -1134,9 +1105,8 @@ function calcAge(dateStr) {
    PUBLIC CHICKEN GRID
 ═══════════════════════════════════════════════════════ */
 async function loadPublicChickens() {
-  const grid = document.getElementById('chickenGrid');
-  const raw = await fetchCSV(CSV.chickens);
-  // Filter out rows without meaningful data
+  document.getElementById('chickenGrid').innerHTML = '<div class="loading-overlay">⏳ กำลังโหลดข้อมูล...</div>';
+  const raw = await fetchSheet(SHEET_NAMES.chickens);
   db.chickens = raw.filter(r => r['รหัสตั้งเอง'] || r['ชื่อไก่ตั้งเอง']);
   renderChickenGrid();
 }
@@ -1218,11 +1188,11 @@ function showDash(section, btn) {
 }
 
 async function loadDashData() {
-  // Load all data
+  document.getElementById('statsRow').innerHTML = '<div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>';
   const [hatch, expense, revenue] = await Promise.all([
-    fetchCSV(CSV.hatch),
-    fetchCSV(CSV.expense),
-    fetchCSV(CSV.revenue),
+    fetchSheet(SHEET_NAMES.hatch),
+    fetchSheet(SHEET_NAMES.expense),
+    fetchSheet(SHEET_NAMES.revenue),
   ]);
   db.hatch = hatch;
   db.expense = expense;
@@ -1334,42 +1304,23 @@ function renderFullChickenTable() {
 
 /* ═══════════════════════════════════════════════════════
    SUBMIT TO GOOGLE SHEETS via Apps Script
-   (Using Google Apps Script Web App as intermediary)
-   Since direct Sheets API needs OAuth, we'll use
-   a simpler approach: open prefilled Google Form URL
-   or show data for manual entry + store in-memory for UI
 ═══════════════════════════════════════════════════════ */
-
-// Apps Script Web App URL — replace with yours after deploying
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeXJJrJpTvU0CAqrgU1SYFBX9rGwWiAwiP-GzQmJ2miPIqiXJJ3kKfoiaBxm0LZqo5ag/exec';
-
 async function submitToSheet(sheetName, rowData, alertId) {
   const alertEl = document.getElementById(alertId);
   showAlert(alertEl, 'loading', '⏳ กำลังบันทึก...');
-
-  // Try Apps Script Web App if configured
-  if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_WEB_APP_URL') {
-    try {
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheet: sheetName, row: rowData }),
-      });
-      showAlert(alertEl, 'success', '✅ บันทึกสำเร็จ!');
-      return true;
-    } catch (e) {
-      showAlert(alertEl, 'error', '❌ เชื่อมต่อไม่ได้ — บันทึกในเซสชันนี้เท่านั้น');
-    }
-  } else {
-    // Fallback: store in memory and show instructions
-    setTimeout(() => {
-      showAlert(alertEl, 'success',
-        `✅ บันทึกในเซสชันนี้สำเร็จ\n` +
-        `⚠️ เพื่อบันทึกลง Google Sheets จริง กรุณาตั้งค่า Apps Script URL ในโค้ด`
-      );
-    }, 600);
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheet: sheetName, row: rowData }),
+    });
+    // no-cors ไม่ return body ได้ แต่ถ้าไม่ throw = สำเร็จ
+    showAlert(alertEl, 'success', '✅ บันทึกสำเร็จ!');
     return true;
+  } catch (err) {
+    showAlert(alertEl, 'error', '❌ บันทึกไม่สำเร็จ: ' + err.message);
+    return false;
   }
 }
 
@@ -1437,30 +1388,6 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- APPS SCRIPT SETUP NOTICE (shown in page source) -->
-<!--
-  ════════════════════════════════════════════════════════════════
-  HOW TO ENABLE WRITE TO GOOGLE SHEETS:
-  
-  1. Open your Google Sheet
-  2. Extensions → Apps Script
-  3. Paste this code:
-
-  function doPost(e) {
-    const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(data.sheet);
-    const row = Object.values(data.row);
-    sheet.appendRow(row);
-    return ContentService.createTextOutput('OK');
-  }
-
-  4. Deploy → New Deployment → Web App
-     Execute as: Me | Who has access: Anyone
-  5. Copy the Web App URL
-  6. Replace 'YOUR_APPS_SCRIPT_WEB_APP_URL' in this file's JS
-  ════════════════════════════════════════════════════════════════
--->
 
 </body>
 </html>
