@@ -830,6 +830,77 @@
 #hatchTable tbody tr:hover { background: #EFF6FF; }
 #hatchTable tbody tr:last-child td { border-bottom: none; }
 
+/* ─── MOBILE CARD LIST ────────────────────── */
+.hatch-card-list { display: none; }
+
+.hatch-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  animation: fadeRow 0.3s ease both;
+}
+.hatch-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.hatch-card-parents {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.hatch-card-parent {
+  background: var(--cream-warm);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.hatch-card-parent .lbl {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 2px;
+}
+.hatch-card-parent .val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.hatch-card-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+.hatch-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-mid);
+}
+.hatch-meta strong { color: var(--ink); }
+
+/* บนมือถือ (<640px) ซ่อนตาราง แสดง card */
+@media (max-width: 640px) {
+  .table-panel { display: none; }
+  .hatch-card-list { display: block; }
+  .container { padding: 16px 14px; }
+  .home-hero { padding: 36px 16px 28px; }
+  .home-hero h1 { font-size: 22px; }
+  .summary-bar { gap: 8px; }
+  .sum-chip { padding: 8px 12px; font-size: 13px; flex: 1; min-width: 0; justify-content: center; }
+  .sum-chip .sum-val { font-size: 18px; }
+  .search-input { max-width: 100%; font-size: 16px; /* ป้องกัน iOS zoom */ }
+}
+
 @keyframes fadeRow {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -906,7 +977,7 @@
   <div class="home-hero">
     <div class="label">LittleFarm · Sumalek</div>
     <h1>วิถีฟาร์มเล็กๆ</h1>
-    <p>ข้อมูลอายุลูกเจี๊ยบทั้งหมด</p>
+    <p>ข้อมูลลูกเจี๊ยบ</p>
   </div>
 
   <div class="container">
@@ -931,6 +1002,12 @@
         </table>
       </div>
     </div>
+
+    <!-- Mobile card list (แสดงเฉพาะมือถือ) -->
+    <div class="hatch-card-list" id="hatchCardList">
+      <div style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</div>
+    </div>
+
   </div>
 </div>
 
@@ -1357,6 +1434,7 @@ async function loadPublicChickens() {
     }
 
     if (el('resultCount')) el('resultCount').textContent = `${data.length} รายการ`;
+    renderCards(data);
 
     table.innerHTML = `
       <thead>
@@ -1388,14 +1466,49 @@ async function loadPublicChickens() {
     `;
   }
 
+  function renderCards(data) {
+    const list = document.getElementById('hatchCardList');
+    if (!list) return;
+    if (!data.length) {
+      list.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8">🐣 ไม่พบข้อมูล</div>';
+      return;
+    }
+    list.innerHTML = data.map((c, i) => `
+      <div class="hatch-card" style="animation-delay:${Math.min(i*0.03,0.5)}s">
+        <div class="hatch-card-top">
+          <span class="tag-id">${c['ID'] || '-'}</span>
+          <span class="tag-age">${c['อายุจนถึงวันปัจจุบัน'] || '-'}</span>
+          <span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</span>
+        </div>
+        <div class="hatch-card-parents">
+          <div class="hatch-card-parent">
+            <div class="lbl">🐔 แม่ไก่</div>
+            <div class="val">${c['ชื่อ/รหัสแม่ไก่'] || '-'}</div>
+          </div>
+          <div class="hatch-card-parent">
+            <div class="lbl">🐓 พ่อไก่</div>
+            <div class="val">${c['ชื่อ/รหัสพ่อไก่'] || '-'}</div>
+          </div>
+        </div>
+        <div class="hatch-card-footer">
+          <div class="hatch-meta">📅 <strong>${formatDateOnly(c['วันที่ฟักออกจากไข่'])}</strong></div>
+          ${c['เบอกิ๊ฟปีกรวม'] && c['เบอกิ๊ฟปีกรวม'] !== '-'
+            ? `<div class="hatch-meta">🏷 <strong>${c['เบอกิ๊ฟปีกรวม']}</strong></div>` : ''}
+          ${c['สีข้อขา'] && c['สีข้อขา'] !== '-'
+            ? `<div class="hatch-meta">🦵 <strong>${c['สีข้อขา']}</strong></div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
   function filterTable() {
     const q = (document.getElementById('searchBox')?.value || '').toLowerCase();
-    if (!q) { renderRows(allHatchData); return; }
-    const filtered = allHatchData.filter(c =>
+    const filtered = !q ? allHatchData : allHatchData.filter(c =>
       ['ID','ชื่อ/รหัสแม่ไก่','ชื่อ/รหัสพ่อไก่','เบอกิ๊ฟปีกรวม','สีข้อขา','อายุจนถึงวันปัจจุบัน']
         .some(k => String(c[k]||'').toLowerCase().includes(q))
     );
     renderRows(filtered);
+    renderCards(filtered);
   }
   /*function renderChickenGrid() {
     const grid = document.getElementById('chickenGrid');
