@@ -728,49 +728,161 @@
 
   .chicken-sex-icon { font-size: 12px; }
  
-.table-panel {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.08);
-    overflow: hidden;
+/* ─── SUMMARY BAR ─────────────────────────── */
+.summary-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.sum-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 18px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-mid);
+}
+.sum-chip .sum-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sky-deep);
+  letter-spacing: -0.5px;
+}
+.sum-chip .sum-icon { font-size: 18px; }
+
+/* ─── SEARCH BAR ──────────────────────────── */
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.search-input {
+  flex: 1;
+  max-width: 320px;
+  padding: 9px 14px 9px 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394A3B8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.856a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  color: var(--ink);
+}
+.search-input:focus {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+.result-count {
+  font-size: 13px;
+  color: var(--ink-light);
 }
 
-.table-wrapper {
-    max-height: 70vh;       /* เลื่อนแนวตั้ง */
-    overflow: auto;
+/* ─── TABLE ───────────────────────────────── */
+.table-panel {
+  background: var(--white);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,0.04);
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
+.table-wrapper {
+  max-height: 72vh;
+  overflow: auto;
+}
+.table-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+.table-wrapper::-webkit-scrollbar-track { background: transparent; }
+.table-wrapper::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
 
 #hatchTable {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto;
-    font-size: 14px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
 }
-
-#hatchTable th,
-#hatchTable td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #e5e7eb;
-    white-space: nowrap;
+#hatchTable th, #hatchTable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  white-space: nowrap;
 }
-
-/* Sticky Header */
 #hatchTable thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #2563eb;
-    color: white;
-    font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+#hatchTable thead th:first-child { border-radius: 0; }
+#hatchTable tbody tr {
+  transition: background 0.1s;
+  animation: fadeRow 0.3s ease both;
+}
+#hatchTable tbody tr:nth-child(even) { background: #F8FAFF; }
+#hatchTable tbody tr:hover { background: #EFF6FF; }
+#hatchTable tbody tr:last-child td { border-bottom: none; }
+
+@keyframes fadeRow {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Hover */
-#hatchTable tbody tr:hover {
-    background: #eff6ff;
+/* ─── BADGES IN TABLE ─────────────────────── */
+.tag-id {
+  display: inline-block;
+  background: var(--sky-soft);
+  color: var(--sky-deep);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
 }
-
-#hatchTable tbody tr:nth-child(even) {
-    background: #f9fafb;
+.tag-round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  background: var(--sky);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 50%;
+}
+.tag-age {
+  display: inline-block;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.tag-wing {
+  display: inline-block;
+  background: #F3F4F6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.col-name { font-weight: 600; color: var(--ink); }
+.col-date { color: var(--ink-mid); font-size: 13px; }
+.no-data-row td {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--ink-light);
+  font-size: 15px;
 }
   
 </style>
@@ -792,30 +904,31 @@
 <!-- ═══════════════════════════════ PUBLIC HOME ═══════════════════════════════ -->
 <div id="publicPage" class="page active">
   <div class="home-hero">
-    <div class="label">LittleFarm · ไก่ชน</div>
-    <h1>ข้อมูลฝูงไก่ปัจจุบัน</h1>
-    <p>อายุ สายพันธุ์ พ่อแม่ — ข้อมูลทั้งหมด</p>
+    <div class="label">LittleFarm · Sumalek</div>
+    <h1>วิถีฟาร์มเล็กๆ</h1>
+    <p>ข้อมูลอายุลูกเจี๊ยบทั้งหมด</p>
   </div>
 
   <div class="container">
-    <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterChickens('all', this)">ทั้งหมด</button>
-      <!--<button class="filter-btn" onclick="filterChickens('Active', this)">Active</button>
-      <button class="filter-btn" onclick="filterChickens('InActive', this)">Inactive</button>
-      <button class="filter-btn" onclick="filterChickens('เมีย', this)">แม่พันธุ์ 🐓</button>
-      <button class="filter-btn" onclick="filterChickens('ผู้', this)">พ่อพันธุ์ 🐔</button>-->
+
+    <!-- Summary chips -->
+    <div class="summary-bar" id="summaryBar">
+      <div class="sum-chip"><span class="sum-icon">🥚</span> ชุดทั้งหมด <span class="sum-val" id="sumTotal">—</span></div>
+      <!--<div class="sum-chip"><span class="sum-icon">🐣</span> ลูกที่ฟักได้ <span class="sum-val" id="sumHatched">—</span></div>
+      <div class="sum-chip"><span class="sum-icon">🏷️</span> มีกิ๊ฟปีก <span class="sum-val" id="sumTagged">—</span></div>-->
     </div>
 
-    <div class="section-title">สมาชิกในฝูง</div>
+    <!-- Search -->
+    <div class="search-wrap">
+      <input class="search-input" id="searchBox" type="text" placeholder="ค้นหา ID · แม่ไก่ · พ่อไก่ · กิ๊ฟปีก..." oninput="filterTable()">
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
     <div class="table-panel">
-      <div  class="table-wrapper">
-          <table id="hatchTable">
-              <tr>
-                  <td style="padding:20px;text-align:center;">
-                      ⏳ กำลังโหลดข้อมูล...
-                  </td>
-              </tr>
-          </table>
+      <div class="table-wrapper">
+        <table id="hatchTable">
+          <tr><td style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</td></tr>
+        </table>
       </div>
     </div>
   </div>
@@ -1212,64 +1325,77 @@ async function loadPublicChickens() {
   renderChickenGrid();
 }
 
+  let allHatchData = [];  // เก็บข้อมูลทั้งหมดสำหรับ filter
+
   function renderChickenGrid() {
-    
     const table = document.getElementById('hatchTable');
-     //console.log(table);
-     //console.log(db.hatch);
-    if (!table) {
-      console.error('ไม่พบ hatchTable');
-      return;
-    }
-    //let data = db.hatch;
-    let data = [...db.hatch].reverse();  // เรียงจากล่างขึ้นบน
+    if (!table) return;
+
+    allHatchData = [...db.hatch].reverse();
+
+    // Summary chips
+    const sumTotal = allHatchData.length;
+    const sumHatched = allHatchData.reduce((s,c) => s + (parseInt(c['จำนวนลูกเจี๊ยบที่ฟัก']) || 0), 0);
+    const sumTagged = allHatchData.filter(c => c['เบอกิ๊ฟปีกรวม'] && c['เบอกิ๊ฟปีกรวม'] !== '-').length;
+    const el = id => document.getElementById(id);
+    if (el('sumTotal')) el('sumTotal').textContent = sumTotal;
+    if (el('sumHatched')) el('sumHatched').textContent = sumHatched;
+    if (el('sumTagged')) el('sumTagged').textContent = sumTagged;
+    if (el('resultCount')) el('resultCount').textContent = `${sumTotal} รายการ`;
+
+    renderRows(allHatchData);
+  }
+
+  function renderRows(data) {
+    const table = document.getElementById('hatchTable');
+    const el = id => document.getElementById(id);
 
     if (!data.length) {
-      table.innerHTML = `
-            <tr>
-                <td colspan="16" style="text-align:center;padding:20px;">
-                    ไม่พบข้อมูล
-                </td>
-            </tr>
-        `;
+      table.innerHTML = `<tr class="no-data-row"><td colspan="8">🐣 ไม่พบข้อมูล</td></tr>`;
+      if (el('resultCount')) el('resultCount').textContent = '0 รายการ';
       return;
     }
 
-    table.innerHTML = `
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>อายุ</th>
-                <th>ชุด</th>
-                <th>แม่ไก่</th>
-                <th>พ่อไก่</th>
-                <th>ฟักออก</th>
-                <th>กิ๊ฟปีก</th>
-                <th>สีข้อขา</th>
-            </tr>
-        </thead>
+    if (el('resultCount')) el('resultCount').textContent = `${data.length} รายการ`;
 
-        <tbody>
-            ${data.map(c => `
-                <tr>
-                    <td>${c['ID'] || '-'}</td>
-                    <td>${c['อายุจนถึงวันปัจจุบัน'] || '-'}</td>
-                    <td>${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</td>
-                    <td class="name-col">
-                        ${c['ชื่อ/รหัสแม่ไก่'] || '-'}
-                    </td>
-                    <td class="name-col">
-                        ${c['ชื่อ/รหัสพ่อไก่'] || '-'}
-                    </td>
-                    <td class="date">
-                        ${formatDateOnly(c['วันที่ฟักออกจากไข่'])}
-                    </td>
-                    <td>${c['เบอกิ๊ฟปีกรวม'] || '-'}</td>
-                    <td>${c['สีข้อขา'] || '-'}</td>
-                </tr>
-            `).join('')}
-        </tbody>
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>อายุ</th>
+          <th>ชุด</th>
+          <th>แม่ไก่</th>
+          <th>พ่อไก่</th>
+          <th>ฟักออก</th>
+          <th>กิ๊ฟปีก</th>
+          <th>สีข้อขา</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map((c, i) => `
+          <tr style="animation-delay:${Math.min(i*0.02, 0.4)}s">
+            <td><span class="tag-id">${c['ID'] || '-'}</span></td>
+            <td><span class="tag-age">${c['อายุจนถึงวันปัจจุบัน'] || '-'}</span></td>
+            <td><span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</span></td>
+            <td class="col-name">${c['ชื่อ/รหัสแม่ไก่'] || '-'}</td>
+            <td style="color:var(--ink-mid)">${c['ชื่อ/รหัสพ่อไก่'] || '-'}</td>
+            <td class="col-date">${formatDateOnly(c['วันที่ฟักออกจากไข่'])}</td>
+            <td>${c['เบอกิ๊ฟปีกรวม'] ? `<span class="tag-wing">🏷 ${c['เบอกิ๊ฟปีกรวม']}</span>` : '<span style="color:#CBD5E1">—</span>'}</td>
+            <td style="font-size:13px">${c['สีข้อขา'] || '-'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
     `;
+  }
+
+  function filterTable() {
+    const q = (document.getElementById('searchBox')?.value || '').toLowerCase();
+    if (!q) { renderRows(allHatchData); return; }
+    const filtered = allHatchData.filter(c =>
+      ['ID','ชื่อ/รหัสแม่ไก่','ชื่อ/รหัสพ่อไก่','เบอกิ๊ฟปีกรวม','สีข้อขา','อายุจนถึงวันปัจจุบัน']
+        .some(k => String(c[k]||'').toLowerCase().includes(q))
+    );
+    renderRows(filtered);
   }
   /*function renderChickenGrid() {
     const grid = document.getElementById('chickenGrid');
