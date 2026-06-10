@@ -727,11 +727,58 @@
   }
 
   .chicken-sex-icon { font-size: 12px; }
+ 
+.table-panel {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    overflow: hidden;
+}
+
+.table-wrapper {
+    max-height: 70vh;       /* เลื่อนแนวตั้ง */
+    overflow: auto;
+}
+
+#hatchTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 14px;
+}
+
+#hatchTable th,
+#hatchTable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+/* Sticky Header */
+#hatchTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+}
+
+/* Hover */
+#hatchTable tbody tr:hover {
+    background: #eff6ff;
+}
+
+#hatchTable tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+  
 </style>
 </head>
 <body>
 
 <!-- NAV -->
+ 
 <nav>
   <div class="nav-brand">
     <span class="dot"></span>
@@ -753,18 +800,27 @@
   <div class="container">
     <div class="filter-bar">
       <button class="filter-btn active" onclick="filterChickens('all', this)">ทั้งหมด</button>
-      <button class="filter-btn" onclick="filterChickens('Active', this)">Active</button>
+      <!--<button class="filter-btn" onclick="filterChickens('Active', this)">Active</button>
       <button class="filter-btn" onclick="filterChickens('InActive', this)">Inactive</button>
       <button class="filter-btn" onclick="filterChickens('เมีย', this)">แม่พันธุ์ 🐓</button>
-      <button class="filter-btn" onclick="filterChickens('ผู้', this)">พ่อพันธุ์ 🐔</button>
+      <button class="filter-btn" onclick="filterChickens('ผู้', this)">พ่อพันธุ์ 🐔</button>-->
     </div>
 
     <div class="section-title">สมาชิกในฝูง</div>
-    <div id="chickenGrid" class="chicken-grid">
-      <div class="loading-overlay">⏳ กำลังโหลดข้อมูล...</div>
+    <div class="table-panel">
+      <div  class="table-wrapper">
+          <table id="hatchTable">
+              <tr>
+                  <td style="padding:20px;text-align:center;">
+                      ⏳ กำลังโหลดข้อมูล...
+                  </td>
+              </tr>
+          </table>
+      </div>
     </div>
   </div>
 </div>
+
 
 <!-- ═══════════════════════════════ LOGIN ═══════════════════════════════ -->
 <div id="loginPage" class="page">
@@ -999,7 +1055,7 @@
 /* ═══════════════════════════════════════════════════════
    CONFIG — Apps Script เป็นทั้ง API read และ write
 ═══════════════════════════════════════════════════════ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeXJJrJpTvU0CAqrgU1SYFBX9rGwWiAwiP-GzQmJ2miPIqiXJJ3kKfoiaBxm0LZqo5ag/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3kcctE2pTIweyMAEGc5exbc4025MvvC14ytRItFHmJDGdLvx9wL1Ju-acBuvWiDlRmQ/exec';
 
 const SHEET_NAMES = {
   chickens: 'Dataพ่อแม่พันธุ์',
@@ -1058,23 +1114,61 @@ function doLogout() {
 /* ═══════════════════════════════════════════════════════
    FETCH FROM APPS SCRIPT
 ═══════════════════════════════════════════════════════ */
-async function fetchSheet(sheetName) {
-  try {
-    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    if (!Array.isArray(json)) return [];
-    // กรองแถวที่ว่างทั้งหมดออก
-    return json.filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined));
-  } catch (err) {
-    console.error('fetchSheet error:', sheetName, err);
-    return [];
-  }
+function fetchSheet(sheetName) {
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&callback=${cbName}`;
+
+    let done = false;
+    const timeout = setTimeout(() => {
+      if (done) return;
+      done = true;
+      cleanup();
+      console.warn('fetchSheet timeout:', sheetName);
+      resolve([]);
+    }, 15000);
+
+    window[cbName] = (data) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      if (Array.isArray(data)) {
+        resolve(data.filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined)));
+      } else {
+        resolve([]);
+      }
+    };
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    script.onerror = () => { if (!done) { done = true; cleanup(); resolve([]); } };
+    script.src = url;
+    document.head.appendChild(script);
+  });
 }
+
 
 /* ═══════════════════════════════════════════════════════
    AGE CALCULATOR
 ═══════════════════════════════════════════════════════ */
+  function formatDateOnly(dateStr) {
+    if (!dateStr) return '-';
+
+    const d = new Date(dateStr);
+
+    if (isNaN(d)) return dateStr;
+
+    return d.toLocaleDateString('th-TH', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
 function parseThaiDate(str) {
   if (!str) return null;
   // Format: D/M/YYYY or DD/MM/YYYY
@@ -1105,68 +1199,216 @@ function calcAge(dateStr) {
    PUBLIC CHICKEN GRID
 ═══════════════════════════════════════════════════════ */
 async function loadPublicChickens() {
-  document.getElementById('chickenGrid').innerHTML = '<div class="loading-overlay">⏳ กำลังโหลดข้อมูล...</div>';
-  const raw = await fetchSheet(SHEET_NAMES.chickens);
-  db.chickens = raw.filter(r => r['รหัสตั้งเอง'] || r['ชื่อไก่ตั้งเอง']);
+  document.getElementById('hatchTable').innerHTML = `
+      <tr>
+          <td colspan="16" style="text-align:center;padding:20px;">
+              ⏳ กำลังโหลดข้อมูล...
+          </td>
+      </tr>
+  `;
+  const raw = await fetchSheet(SHEET_NAMES.hatch);
+  console.log('EggHatchingKitData:', raw);
+  db.hatch = raw;
   renderChickenGrid();
 }
 
-function renderChickenGrid() {
-  const grid = document.getElementById('chickenGrid');
-  let data = db.chickens;
+  function renderChickenGrid() {
+    
+    const table = document.getElementById('hatchTable');
+     //console.log(table);
+     //console.log(db.hatch);
+    if (!table) {
+      console.error('ไม่พบ hatchTable');
+      return;
+    }
+    //let data = db.hatch;
+    let data = [...db.hatch].reverse();  // เรียงจากล่างขึ้นบน
 
-  if (currentFilter !== 'all') {
-    data = data.filter(r =>
-      r['สถานะ'] === currentFilter || r['เพศ'] === currentFilter
-    );
+    if (!data.length) {
+      table.innerHTML = `
+            <tr>
+                <td colspan="16" style="text-align:center;padding:20px;">
+                    ไม่พบข้อมูล
+                </td>
+            </tr>
+        `;
+      return;
+    }
+
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>อายุ</th>
+                <th>ชุด</th>
+                <th>แม่ไก่</th>
+                <th>พ่อไก่</th>
+                <th>ฟักออก</th>
+                <th>กิ๊ฟปีก</th>
+                <th>สีข้อขา</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            ${data.map(c => `
+                <tr>
+                    <td>${c['ID'] || '-'}</td>
+                    <td>${c['อายุจนถึงวันปัจจุบัน'] || '-'}</td>
+                    <td>${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</td>
+                    <td class="name-col">
+                        ${c['ชื่อ/รหัสแม่ไก่'] || '-'}
+                    </td>
+                    <td class="name-col">
+                        ${c['ชื่อ/รหัสพ่อไก่'] || '-'}
+                    </td>
+                    <td class="date">
+                        ${formatDateOnly(c['วันที่ฟักออกจากไข่'])}
+                    </td>
+                    <td>${c['เบอกิ๊ฟปีกรวม'] || '-'}</td>
+                    <td>${c['สีข้อขา'] || '-'}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
   }
+  /*function renderChickenGrid() {
+    const grid = document.getElementById('chickenGrid');
+    let data = db.hatch;
 
-  if (!data.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="emoji">🐓</div><p>ไม่พบข้อมูล</p></div>';
-    return;
-  }
+    if (!data.length) {
+      console.log(db.hatch);
+      console.log(data);
+      grid.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">🐣</div>
+        <p>ไม่พบข้อมูล</p>
+      </div>
+    `;
+      return;
+    }
 
-  grid.innerHTML = data.map(c => {
-    const name = c['ชื่อไก่ตั้งเอง'] || c['รหัสตั้งเอง'] || '-';
-    const code = c['รหัสตั้งเอง'] || '';
-    const farm = c['ฟาร์มต้นสาย'] || '-';
-    const father = c['ชื่อพ่อพันธุ์'] || '-';
-    const mother = c['ชื่อแม่พันธุ์'] || '-';
-    const sex = c['เพศ'] || '';
-    const status = c['สถานะ'] || 'Unknown';
-    const dateStr = c['วันที่'] || '';
-    const age = calcAge(dateStr);
-    const isActive = status === 'Active';
-    const sexLabel = sex === 'เมีย' ? '🐓 แม่' : sex === 'ผู้' ? '🐔 พ่อ' : '';
+    grid.innerHTML = data.map(c => {
+      const id = c['ID'] || '-';
+      const age = c['อายุจนถึงวันปัจจุบัน'] || '-';
+      const round = c['ชุดที่(นับรอบของตัวเมีย)'] || '-';
+      const mother = c['ชื่อ/รหัสแม่ไก่'] || '-';
+      const father = c['ชื่อ/รหัสพ่อไก่'] || '-';
+      const parentCode = c['รหัสแม่ - พ่อ'] || '-';
+      const item = c['รายการ'] || '-';
+      const hatchDate = c['วันที่ฟักออกจากไข่'] || '-';
+      const firstEggDate = c['วันที่เริ่มไข่ฟองแรก'] || '-';
+      const broodDate = c['วันที่เริ่มกกไข่'] || '-';
+      const eggCount = c['จำนวนฟอง'] || '0';
+      const chickCount = c['จำนวนลูกเจี๊ยบที่ฟัก'] || '0';
+      const maleCount = c['ลูกเจี๊ยบตัวผู้'] || '0';
+      const femaleCount = c['ลูกเจี๊ยบตัวเมีย'] || '0';
+      const wingTag = c['เบอกิ๊ฟปีกรวม'] || '-';
+      const legColor = c['สีข้อขา'] || '-';
 
-    return `
+      return `
       <div class="chicken-card">
         <div class="card-header">
-          ${code ? `<span class="chicken-code">${code}</span>` : '<span></span>'}
-          <span class="status-dot ${isActive ? 'active' : 'inactive'}" title="${status}"></span>
+          <span class="chicken-code">ID : ${id}</span>
+          <span class="status-dot active"></span>
         </div>
-        <div class="chicken-name">${name} ${sexLabel}</div>
-        <div class="chicken-farm">📍 ${farm}</div>
+
+        <div class="chicken-name">
+          🐔 ${mother}
+        </div>
+
+        <div class="chicken-farm">
+          🐓 พ่อพันธุ์ : ${father}
+        </div>
+
         <div class="parents-row">
           <div class="parent-box">
-            <div class="parent-label">พ่อพันธุ์</div>
-            <div class="parent-name">${father}</div>
+            <div class="parent-label">ชุดที่</div>
+            <div class="parent-name">${round}</div>
           </div>
+
           <div class="parent-box">
-            <div class="parent-label">แม่พันธุ์</div>
-            <div class="parent-name">${mother}</div>
+            <div class="parent-label">อายุ</div>
+            <div class="parent-name">${age}</div>
           </div>
         </div>
+
+        <div class="age-row">
+          <span class="age-icon">🧬</span>
+          <span class="age-text">
+            รหัสคู่พ่อแม่ : <strong>${parentCode}</strong>
+          </span>
+        </div>
+
+        <div class="age-row">
+          <span class="age-icon">📋</span>
+          <span class="age-text">
+            รายการ : ${item}
+          </span>
+        </div>
+
+        <div class="age-row">
+          <span class="age-icon">🥚</span>
+          <span class="age-text">
+            จำนวนไข่ : <strong>${eggCount}</strong> ฟอง
+          </span>
+        </div>
+
+        <div class="age-row">
+          <span class="age-icon">🐣</span>
+          <span class="age-text">
+            ฟักออก : <strong>${chickCount}</strong> ตัว
+          </span>
+        </div>
+
+        <div class="parents-row">
+          <div class="parent-box">
+            <div class="parent-label">ตัวผู้</div>
+            <div class="parent-name">🐔 ${maleCount}</div>
+          </div>
+
+          <div class="parent-box">
+            <div class="parent-label">ตัวเมีย</div>
+            <div class="parent-name">🐓 ${femaleCount}</div>
+          </div>
+        </div>
+
         <div class="age-row">
           <span class="age-icon">📅</span>
           <span class="age-text">
-            ${dateStr ? `อายุ <span class="age-value">${age || 'คำนวณไม่ได้'}</span>` : '<span style="color:var(--ink-light)">ไม่ทราบวันเกิด</span>'}
+            ฟักจากไข่ : ${hatchDate}
           </span>
         </div>
+
+        <div class="age-row">
+          <span class="age-icon">🥚</span>
+          <span class="age-text">
+            เริ่มไข่ฟองแรก : ${firstEggDate}
+          </span>
+        </div>
+
+        <div class="age-row">
+          <span class="age-icon">🪺</span>
+          <span class="age-text">
+            เริ่มกกไข่ : ${broodDate}
+          </span>
+        </div>
+
+        <div class="parents-row">
+          <div class="parent-box">
+            <div class="parent-label">เบอร์กิ๊ฟปีก</div>
+            <div class="parent-name">${wingTag}</div>
+          </div>
+
+          <div class="parent-box">
+            <div class="parent-label">สีข้อขา</div>
+            <div class="parent-name">${legColor}</div>
+          </div>
+        </div>
+
       </div>
     `;
-  }).join('');
-}
+    }).join('');
+  }*/
 
 function filterChickens(filter, btn) {
   currentFilter = filter;
@@ -1189,15 +1431,17 @@ function showDash(section, btn) {
 
 async function loadDashData() {
   document.getElementById('statsRow').innerHTML = '<div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>';
-  const [hatch, expense, revenue] = await Promise.all([
+  const [chickens, hatch, expense, revenue] = await Promise.all([
+    fetchSheet(SHEET_NAMES.chickens),
     fetchSheet(SHEET_NAMES.hatch),
     fetchSheet(SHEET_NAMES.expense),
     fetchSheet(SHEET_NAMES.revenue),
   ]);
+
+  db.chickens = chickens;
   db.hatch = hatch;
   db.expense = expense;
   db.revenue = revenue;
-
   renderStats();
   renderRecentTable();
 }
