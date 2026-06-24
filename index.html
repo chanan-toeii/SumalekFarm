@@ -1,294 +1,584 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LittleFarm — ไก่ชน</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LittleFarm — ไก่ชน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- ═══════════════════ SHARED CONFIG ═══════════════════ -->
-<!-- แก้ค่าต่างๆ ที่นี่ที่เดียว ใช้ได้ทั้ง index และ admin -->
-<script>
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3kcctE2pTIweyMAEGc5exbc4025MvvC14ytRItFHmJDGdLvx9wL1Ju-acBuvWiDlRmQ/exec';
+  <!-- ═══════════════════ SHARED CONFIG ═══════════════════ -->
+  <!-- แก้ค่าต่างๆ ที่นี่ที่เดียว ใช้ได้ทั้ง index และ admin -->
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3kcctE2pTIweyMAEGc5exbc4025MvvC14ytRItFHmJDGdLvx9wL1Ju-acBuvWiDlRmQ/exec';
 
-  const SHEET_NAMES = {
-    chickens: { name: 'Dataพ่อแม่พันธุ์', headerRow: 1 },
-    hatch:    { name: 'EggHatchingKitData', headerRow: 1 },
-    expense:  { name: 'Expense',  headerRow: 2 },
-    revenue:  { name: 'Revenue',  headerRow: 2 },
-  };
+    const SHEET_NAMES = {
+      chickens: { name: 'Dataพ่อแม่พันธุ์', headerRow: 1 },
+      hatch: { name: 'EggHatchingKitData', headerRow: 1 },
+      expense: { name: 'Expense', headerRow: 2 },
+      revenue: { name: 'Revenue', headerRow: 2 },
+    };
 
-  const db = { chickens: [], hatch: [], expense: [], revenue: [] };
-</script>
+    const db = { chickens: [], hatch: [], expense: [], revenue: [] };
+  </script>
 
-<style>
-  /* ══════════════════════════════════════
+  <style>
+    /* ══════════════════════════════════════
      DESIGN TOKENS — แก้สีได้ที่นี่
   ══════════════════════════════════════ */
-  :root {
-    --sky: #3B82F6;
-    --sky-deep: #1D4ED8;
-    --sky-soft: #DBEAFE;
-    --sky-pale: #EFF6FF;
-    --cream: #FAFAF7;
-    --cream-warm: #F5F4F0;
-    --white: #FFFFFF;
-    --ink: #1E293B;
-    --ink-mid: #475569;
-    --ink-light: #94A3B8;
-    --border: #E2E8F0;
-    --border-soft: #F1F5F9;
-    --success: #10B981;
-    --danger: #EF4444;
-    --radius: 14px;
-    --radius-sm: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  }
+    :root {
+      --sky: #3B82F6;
+      --sky-deep: #1D4ED8;
+      --sky-soft: #DBEAFE;
+      --sky-pale: #EFF6FF;
+      --cream: #FAFAF7;
+      --cream-warm: #F5F4F0;
+      --white: #FFFFFF;
+      --ink: #1E293B;
+      --ink-mid: #475569;
+      --ink-light: #94A3B8;
+      --border: #E2E8F0;
+      --border-soft: #F1F5F9;
+      --success: #10B981;
+      --danger: #EF4444;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; font-size: 15px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  /* ── NAV ── */
-  nav {
-    background: var(--white); border-bottom: 1px solid var(--border);
-    padding: 0 24px; display: flex; align-items: center;
-    justify-content: space-between; height: 60px;
-    position: sticky; top: 0; z-index: 100;
-  }
-  .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
-  .nav-brand .dot { width: 8px; height: 8px; background: var(--sky); border-radius: 50%; display: inline-block; }
-  .btn-admin {
-    background: var(--sky); color: white; border: none;
-    padding: 7px 18px; border-radius: 8px; font-size: 14px;
-    font-family: inherit; font-weight: 500; cursor: pointer;
-    text-decoration: none; display: inline-block;
-  }
-  .btn-admin:hover { background: var(--sky-deep); }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 15px;
+    }
 
-  /* ── HERO ── */
-  .home-hero {
-    background: linear-gradient(135deg, #1D4ED8 0%, #3B82F6 50%, #60A5FA 100%);
-    color: white; padding: 56px 24px 40px; text-align: center;
-  }
-  .home-hero .label { font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; margin-bottom: 12px; }
-  .home-hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-  .home-hero p { font-size: 15px; opacity: 0.8; }
+    /* ── NAV ── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-  /* ── CONTAINER ── */
-  .container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 17px;
+    }
 
-  /* ── SUMMARY BAR ── */
-  .summary-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-  .sum-chip {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--white); border: 1px solid var(--border);
-    border-radius: 12px; padding: 10px 18px; box-shadow: var(--shadow);
-    font-size: 14px; font-weight: 500; color: var(--ink-mid);
-  }
-  .sum-chip .sum-val { font-size: 20px; font-weight: 700; color: var(--sky-deep); }
-  .sum-chip .sum-icon { font-size: 18px; }
+    .nav-brand .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--sky);
+      border-radius: 50%;
+      display: inline-block;
+    }
 
-  /* ── SEARCH ── */
-  .search-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .search-input {
-    flex: 1; max-width: 320px; padding: 9px 14px 9px 36px;
-    border: 1px solid var(--border); border-radius: 10px;
-    font-family: inherit; font-size: 14px; outline: none; color: var(--ink);
-    background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394A3B8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.856a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .search-input:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
-  .result-count { font-size: 13px; color: var(--ink-light); }
+    .btn-admin {
+      background: var(--sky);
+      color: white;
+      border: none;
+      padding: 7px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
 
-  /* ── TABLE (Desktop) ── */
-  .table-panel {
-    background: var(--white); border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.06); overflow: hidden;
-    border: 1px solid var(--border);
-  }
-  .table-wrapper { max-height: 72vh; overflow: auto; }
-  .table-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
-  .table-wrapper::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+    .btn-admin:hover {
+      background: var(--sky-deep);
+    }
 
-  #hatchTable { width: 100%; border-collapse: collapse; font-size: 14px; }
-  #hatchTable th, #hatchTable td { padding: 11px 14px; border-bottom: 1px solid #F1F5F9; white-space: nowrap; }
-  #hatchTable thead th {
-    position: sticky; top: 0; z-index: 10;
-    background: linear-gradient(135deg, #1D4ED8, #3B82F6);
-    color: white; font-weight: 600; font-size: 12px;
-  }
-  #hatchTable tbody tr:nth-child(even) { background: #F8FAFF; }
-  #hatchTable tbody tr:hover { background: #EFF6FF; }
-  #hatchTable tbody tr:last-child td { border-bottom: none; }
-  #hatchTable tbody tr { animation: fadeRow 0.3s ease both; }
+    /* ── HERO ── */
+    .home-hero {
+      background: linear-gradient(135deg, #1D4ED8 0%, #3B82F6 50%, #60A5FA 100%);
+      color: white;
+      padding: 56px 24px 40px;
+      text-align: center;
+    }
 
-  /* ── BADGES ── */
-  .tag-id { display: inline-block; background: var(--sky-soft); color: var(--sky-deep); font-weight: 700; font-size: 12px; padding: 2px 9px; border-radius: 6px; }
-  .tag-round { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--sky); color: white; font-weight: 700; font-size: 13px; border-radius: 50%; }
-  .tag-age { display: inline-block; background: #FEF3C7; color: #92400E; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
-  .tag-wing { display: inline-block; background: #F3F4F6; color: #374151; font-size: 12px; padding: 2px 8px; border-radius: 6px; }
-  .col-name { font-weight: 600; color: var(--ink); }
+    .home-hero .label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 12px;
+    }
 
-  /* ── MOBILE CARDS ── */
-  .hatch-card-list { display: none; }
-  .hatch-card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 10px; box-shadow: var(--shadow); animation: fadeRow 0.3s ease both; }
-  .hatch-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 6px; }
-  .hatch-card-parents { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-  .hatch-card-parent { background: var(--cream-warm); border-radius: 8px; padding: 7px 10px; }
-  .hatch-card-parent .lbl { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 2px; }
-  .hatch-card-parent .val { font-size: 13px; font-weight: 600; color: var(--ink); }
-  .hatch-card-footer { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border-soft); }
-  .hatch-meta { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-mid); }
-  .hatch-meta strong { color: var(--ink); }
+    .home-hero h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
 
-  @keyframes fadeRow { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .home-hero p {
+      font-size: 15px;
+      opacity: 0.8;
+    }
 
-  /* ── MOBILE BREAKPOINT ── */
-  @media (max-width: 640px) {
-    .table-panel { display: none; }
-    .hatch-card-list { display: block; }
-    .container { padding: 16px 14px; }
-    .home-hero { padding: 36px 16px 28px; }
-    .home-hero h1 { font-size: 22px; }
-    .summary-bar { gap: 8px; }
-    .sum-chip { padding: 8px 12px; font-size: 13px; flex: 1; min-width: 0; justify-content: center; }
-    .search-input { max-width: 100%; font-size: 16px; }
-  }
-</style>
+    /* ── CONTAINER ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .sum-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 18px;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-mid);
+    }
+
+    .sum-chip .sum-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--sky-deep);
+    }
+
+    .sum-chip .sum-icon {
+      font-size: 18px;
+    }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .search-input {
+      flex: 1;
+      max-width: 320px;
+      padding: 9px 14px 9px 36px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      color: var(--ink);
+      background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394A3B8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.856a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 12px center;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .search-input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .result-count {
+      font-size: 13px;
+      color: var(--ink-light);
+    }
+
+    /* ── TABLE (Desktop) ── */
+    .table-panel {
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .table-wrapper {
+      max-height: 72vh;
+      overflow: auto;
+    }
+
+    .table-wrapper::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .table-wrapper::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 3px;
+    }
+
+    #hatchTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    #hatchTable th,
+    #hatchTable td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #F1F5F9;
+      white-space: nowrap;
+    }
+
+    #hatchTable thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    #hatchTable tbody tr:nth-child(even) {
+      background: #F8FAFF;
+    }
+
+    #hatchTable tbody tr:hover {
+      background: #EFF6FF;
+    }
+
+    #hatchTable tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    #hatchTable tbody tr {
+      animation: fadeRow 0.3s ease both;
+    }
+
+    /* ── BADGES ── */
+    .tag-id {
+      display: inline-block;
+      background: var(--sky-soft);
+      color: var(--sky-deep);
+      font-weight: 700;
+      font-size: 12px;
+      padding: 2px 9px;
+      border-radius: 6px;
+    }
+
+    .tag-round {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--sky);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 50%;
+    }
+
+    .tag-age {
+      display: inline-block;
+      background: #FEF3C7;
+      color: #92400E;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .tag-wing {
+      display: inline-block;
+      background: #F3F4F6;
+      color: #374151;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .col-name {
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* ── MOBILE CARDS ── */
+    .hatch-card-list {
+      display: none;
+    }
+
+    .hatch-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      animation: fadeRow 0.3s ease both;
+    }
+
+    .hatch-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 6px;
+    }
+
+    .hatch-card-parents {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .hatch-card-parent {
+      background: var(--cream-warm);
+      border-radius: 8px;
+      padding: 7px 10px;
+    }
+
+    .hatch-card-parent .lbl {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 2px;
+    }
+
+    .hatch-card-parent .val {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .hatch-card-footer {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-soft);
+    }
+
+    .hatch-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--ink-mid);
+    }
+
+    .hatch-meta strong {
+      color: var(--ink);
+    }
+
+    @keyframes fadeRow {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── MOBILE BREAKPOINT ── */
+    @media (max-width: 640px) {
+      .table-panel {
+        display: none;
+      }
+
+      .hatch-card-list {
+        display: block;
+      }
+
+      .container {
+        padding: 16px 14px;
+      }
+
+      .home-hero {
+        padding: 36px 16px 28px;
+      }
+
+      .home-hero h1 {
+        font-size: 22px;
+      }
+
+      .summary-bar {
+        gap: 8px;
+      }
+
+      .sum-chip {
+        padding: 8px 12px;
+        font-size: 13px;
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+      }
+
+      .search-input {
+        max-width: 100%;
+        font-size: 16px;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- ── NAV ── -->
-<nav>
-  <div class="nav-brand"><span class="dot"></span> LittleFarm</div>
-  <a class="btn-admin" href="admin.html">เข้าสู่ระบบ</a>
-</nav>
+  <!-- ── NAV ── -->
+  <nav>
+    <div class="nav-brand"><span class="dot"></span> LittleFarm</div>
+    <a class="btn-admin" href="admin.html">เข้าสู่ระบบ</a>
+  </nav>
 
-<!-- ══════════════════ PUBLIC PAGE ══════════════════ -->
-<div class="home-hero">
-  <div class="label">LittleFarm · Sumalek</div>
-  <h1>วิถีฟาร์มเล็กๆ</h1>
-  <p>ข้อมูลลูกเจี๊ยบ</p>
-</div>
-
-<div class="container">
-  <!-- Summary -->
-  <div class="summary-bar">
-    <div class="sum-chip"><span class="sum-icon">🥚</span> ชุดทั้งหมด <span class="sum-val" id="sumTotal">—</span></div>
+  <!-- ══════════════════ PUBLIC PAGE ══════════════════ -->
+  <div class="home-hero">
+    <div class="label">LittleFarm · Sumalek</div>
+    <h1>วิถีฟาร์มเล็กๆ</h1>
+    <p>ข้อมูลลูกเจี๊ยบ</p>
   </div>
 
-  <!-- Search -->
-  <div class="search-wrap">
-    <input class="search-input" id="searchBox" type="text"
-      placeholder="ค้นหา ID · แม่ไก่ · พ่อไก่ · กิ๊ฟปีก..." oninput="filterTable()">
-    <span class="result-count" id="resultCount"></span>
-  </div>
+  <div class="container">
+    <!-- Summary -->
+    <div class="summary-bar">
+      <div class="sum-chip"><span class="sum-icon">🥚</span> ชุดทั้งหมด <span class="sum-val" id="sumTotal">—</span>
+      </div>
+    </div>
 
-  <!-- Desktop Table -->
-  <div class="table-panel">
-    <div class="table-wrapper">
-      <table id="hatchTable">
-        <tr><td style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</td></tr>
-      </table>
+    <!-- Search -->
+    <div class="search-wrap">
+      <input class="search-input" id="searchBox" type="text" placeholder="ค้นหา ID · แม่ไก่ · พ่อไก่ · กิ๊ฟปีก..."
+        oninput="filterTable()">
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="table-panel">
+      <div class="table-wrapper">
+        <table id="hatchTable">
+          <tr>
+            <td style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="hatch-card-list" id="hatchCardList">
+      <div style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</div>
     </div>
   </div>
 
-  <!-- Mobile Cards -->
-  <div class="hatch-card-list" id="hatchCardList">
-    <div style="padding:32px;text-align:center;color:#94A3B8">⏳ กำลังโหลดข้อมูล...</div>
-  </div>
-</div>
+  <!-- ══════════════════ JAVASCRIPT ══════════════════ -->
+  <script>
+    /* ── FETCH (JSONP) ── */
+    function fetchSheet(sheetConfig) {
+      const sheetName = sheetConfig.name;
+      const headerRow = sheetConfig.headerRow || 1;
+      return new Promise((resolve) => {
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&headerRow=${headerRow}&callback=${cbName}`;
+        let done = false;
+        const timeout = setTimeout(() => { if (!done) { done = true; cleanup(); resolve([]); } }, 15000);
+        window[cbName] = (data) => {
+          if (done) return; done = true; cleanup();
+          resolve(Array.isArray(data) ? data.filter(row => Object.values(row).some(v => v !== '' && v !== null)) : []);
+        };
+        function cleanup() { clearTimeout(timeout); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
+        script.onerror = () => { if (!done) { done = true; cleanup(); resolve([]); } };
+        script.src = url;
+        document.head.appendChild(script);
+      });
+    }
 
-<!-- ══════════════════ JAVASCRIPT ══════════════════ -->
-<script>
-/* ── FETCH (JSONP) ── */
-function fetchSheet(sheetConfig) {
-  const sheetName = sheetConfig.name;
-  const headerRow = sheetConfig.headerRow || 1;
-  return new Promise((resolve) => {
-    const cbName = 'cb_' + Math.random().toString(36).slice(2);
-    const script = document.createElement('script');
-    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&headerRow=${headerRow}&callback=${cbName}`;
-    let done = false;
-    const timeout = setTimeout(() => { if (!done) { done = true; cleanup(); resolve([]); } }, 15000);
-    window[cbName] = (data) => {
-      if (done) return; done = true; cleanup();
-      resolve(Array.isArray(data) ? data.filter(row => Object.values(row).some(v => v !== '' && v !== null)) : []);
-    };
-    function cleanup() { clearTimeout(timeout); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
-    script.onerror = () => { if (!done) { done = true; cleanup(); resolve([]); } };
-    script.src = url;
-    document.head.appendChild(script);
-  });
-}
+    /* ── UTILS ── */
+    function formatDateOnly(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return dateStr;
+      return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
 
-/* ── UTILS ── */
-function formatDateOnly(dateStr) {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
+    /* ── LOAD DATA ── */
+    async function loadPublicChickens() {
+      db.hatch = await fetchSheet(SHEET_NAMES.hatch);
+      const el = document.getElementById('sumTotal');
+      if (el) el.textContent = db.hatch.length;
+      renderChickenGrid();
+    }
 
-/* ── LOAD DATA ── */
-async function loadPublicChickens() {
-  db.hatch = await fetchSheet(SHEET_NAMES.hatch);
-  const el = document.getElementById('sumTotal');
-  if (el) el.textContent = db.hatch.length;
-  renderChickenGrid();
-}
+    /* ── STORE FOR FILTER ── */
+    let allHatchData = [];
 
-/* ── STORE FOR FILTER ── */
-let allHatchData = [];
+    /* ── RENDER TABLE ── */
+    function renderChickenGrid() {
+      allHatchData = [...db.hatch].reverse();
+      const el = document.getElementById('resultCount');
+      if (el) el.textContent = `${allHatchData.length} รายการ`;
+      renderRows(allHatchData);
+      renderCards(allHatchData);
+    }
 
-/* ── RENDER TABLE ── */
-function renderChickenGrid() {
-  allHatchData = [...db.hatch].reverse();
-  const el = document.getElementById('resultCount');
-  if (el) el.textContent = `${allHatchData.length} รายการ`;
-  renderRows(allHatchData);
-  renderCards(allHatchData);
-}
-
-function renderRows(data) {
-  const table = document.getElementById('hatchTable');
-  const el = id => document.getElementById(id);
-  if (el('resultCount')) el('resultCount').textContent = `${data.length} รายการ`;
-  if (!data.length) { table.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px;color:#94A3B8">🐣 ไม่พบข้อมูล</td></tr>`; return; }
-  table.innerHTML = `
+    function renderRows(data) {
+      const table = document.getElementById('hatchTable');
+      const el = id => document.getElementById(id);
+      if (el('resultCount')) el('resultCount').textContent = `${data.length} รายการ`;
+      if (!data.length) { table.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px;color:#94A3B8">🐣 ไม่พบข้อมูล</td></tr>`; return; }
+      table.innerHTML = `
     <thead><tr>
       <th>ID</th><th>อายุ</th><th>ชุด</th><th>แม่ไก่</th>
       <th>พ่อไก่</th><th>ฟักออก</th><th>กิ๊ฟปีก</th><th>สีข้อขา</th>
     </tr></thead>
     <tbody>
       ${data.map((c, i) => `
-        <tr style="animation-delay:${Math.min(i*0.02,0.4)}s">
-          <td><span class="tag-id">${c['ID']||'-'}</span></td>
-          <td><span class="tag-age">${c['อายุจนถึงวันปัจจุบัน']||'-'}</span></td>
-          <td><span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)']||'-'}</span></td>
-          <td class="col-name">${c['ชื่อ/รหัสแม่ไก่']||'-'}</td>
-          <td style="color:var(--ink-mid)">${c['ชื่อ/รหัสพ่อไก่']||'-'}</td>
+        <tr style="animation-delay:${Math.min(i * 0.02, 0.4)}s">
+          <td><span class="tag-id">${c['ID'] || '-'}</span></td>
+          <td><span class="tag-age">${c['อายุจนถึงวันปัจจุบัน'] || '-'}</span></td>
+          <td><span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</span></td>
+          <td class="col-name">${c['ชื่อ/รหัสแม่ไก่'] || '-'}</td>
+          <td style="color:var(--ink-mid)">${c['ชื่อ/รหัสพ่อไก่'] || '-'}</td>
           <td style="color:var(--ink-mid);font-size:13px">${formatDateOnly(c['วันที่ฟักออกจากไข่'])}</td>
           <td>${c['เบอกิ๊ฟปีกรวม'] ? `<span class="tag-wing">🏷 ${c['เบอกิ๊ฟปีกรวม']}</span>` : '<span style="color:#CBD5E1">—</span>'}</td>
-          <td style="font-size:13px">${c['สีข้อขา']||'-'}</td>
+          <td style="font-size:13px">${c['สีข้อขา'] || '-'}</td>
         </tr>`).join('')}
     </tbody>`;
-}
+    }
 
-function renderCards(data) {
-  const list = document.getElementById('hatchCardList');
-  if (!list) return;
-  if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8">🐣 ไม่พบข้อมูล</div>'; return; }
-  list.innerHTML = data.map((c, i) => `
-    <div class="hatch-card" style="animation-delay:${Math.min(i*0.03,0.5)}s">
+    function renderCards(data) {
+      const list = document.getElementById('hatchCardList');
+      if (!list) return;
+      if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8">🐣 ไม่พบข้อมูล</div>'; return; }
+      list.innerHTML = data.map((c, i) => `
+    <div class="hatch-card" style="animation-delay:${Math.min(i * 0.03, 0.5)}s">
       <div class="hatch-card-top">
-        <span class="tag-id">${c['ID']||'-'}</span>
-        <span class="tag-age">${c['อายุจนถึงวันปัจจุบัน']||'-'}</span>
-        <span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)']||'-'}</span>
+        <span class="tag-id">${c['ID'] || '-'}</span>
+        <span class="tag-age">${c['อายุจนถึงวันปัจจุบัน'] || '-'}</span>
+        <span class="tag-round">${c['ชุดที่(นับรอบของตัวเมีย)'] || '-'}</span>
       </div>
       <div class="hatch-card-parents">
-        <div class="hatch-card-parent"><div class="lbl">🐔 แม่ไก่</div><div class="val">${c['ชื่อ/รหัสแม่ไก่']||'-'}</div></div>
-        <div class="hatch-card-parent"><div class="lbl">🐓 พ่อไก่</div><div class="val">${c['ชื่อ/รหัสพ่อไก่']||'-'}</div></div>
+        <div class="hatch-card-parent"><div class="lbl">🐔 แม่ไก่</div><div class="val">${c['ชื่อ/รหัสแม่ไก่'] || '-'}</div></div>
+        <div class="hatch-card-parent"><div class="lbl">🐓 พ่อไก่</div><div class="val">${c['ชื่อ/รหัสพ่อไก่'] || '-'}</div></div>
       </div>
       <div class="hatch-card-footer">
         <div class="hatch-meta">📅 <strong>${formatDateOnly(c['วันที่ฟักออกจากไข่'])}</strong></div>
@@ -296,19 +586,20 @@ function renderCards(data) {
         ${c['สีข้อขา'] ? `<div class="hatch-meta">🦵 <strong>${c['สีข้อขา']}</strong></div>` : ''}
       </div>
     </div>`).join('');
-}
+    }
 
-function filterTable() {
-  const q = (document.getElementById('searchBox')?.value || '').toLowerCase();
-  const filtered = !q ? allHatchData : allHatchData.filter(c =>
-    ['ID','ชื่อ/รหัสแม่ไก่','ชื่อ/รหัสพ่อไก่','เบอกิ๊ฟปีกรวม','สีข้อขา','อายุจนถึงวันปัจจุบัน']
-      .some(k => String(c[k]||'').toLowerCase().includes(q))
-  );
-  renderRows(filtered);
-  renderCards(filtered);
-}
+    function filterTable() {
+      const q = (document.getElementById('searchBox')?.value || '').toLowerCase();
+      const filtered = !q ? allHatchData : allHatchData.filter(c =>
+        ['ID', 'ชื่อ/รหัสแม่ไก่', 'ชื่อ/รหัสพ่อไก่', 'เบอกิ๊ฟปีกรวม', 'สีข้อขา', 'อายุจนถึงวันปัจจุบัน']
+          .some(k => String(c[k] || '').toLowerCase().includes(q))
+      );
+      renderRows(filtered);
+      renderCards(filtered);
+    }
 
-window.addEventListener('DOMContentLoaded', loadPublicChickens);
-</script>
+    window.addEventListener('DOMContentLoaded', loadPublicChickens);
+  </script>
 </body>
+
 </html>
