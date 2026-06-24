@@ -1,512 +1,1059 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LittleFarm Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LittleFarm Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- ═══════════════════ SHARED CONFIG ═══════════════════ -->
-<!-- แก้ค่าต่างๆ ที่นี่ที่เดียว -->
-<script>
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3kcctE2pTIweyMAEGc5exbc4025MvvC14ytRItFHmJDGdLvx9wL1Ju-acBuvWiDlRmQ/exec';
+  <!-- ═══════════════════ SHARED CONFIG ═══════════════════ -->
+  <!-- แก้ค่าต่างๆ ที่นี่ที่เดียว -->
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3kcctE2pTIweyMAEGc5exbc4025MvvC14ytRItFHmJDGdLvx9wL1Ju-acBuvWiDlRmQ/exec';
 
-  const SHEET_NAMES = {
-    chickens: { name: 'Dataพ่อแม่พันธุ์', headerRow: 1 },
-    hatch:    { name: 'EggHatchingKitData', headerRow: 1 },
-    expense:  { name: 'Expense',  headerRow: 2 },
-    revenue:  { name: 'Revenue',  headerRow: 2 },
-  };
+    const SHEET_NAMES = {
+      chickens: { name: 'Dataพ่อแม่พันธุ์', headerRow: 1 },
+      hatch: { name: 'EggHatchingKitData', headerRow: 1 },
+      expense: { name: 'Expense', headerRow: 2 },
+      revenue: { name: 'Revenue', headerRow: 2 },
+    };
 
-  // ── LOGIN ── แก้ user/password ที่นี่
-  const ADMIN_USER = 'sumalek';
-  const ADMIN_PASS = '987456321';
+    // ── LOGIN ── แก้ user/password ที่นี่
+    const ADMIN_USER = 'sumalek';
+    const ADMIN_PASS = '987456321';
 
-  const db = { chickens: [], hatch: [], expense: [], revenue: [] };
-</script>
+    const db = { chickens: [], hatch: [], expense: [], revenue: [] };
+  </script>
 
-<style>
-  /* ══════════════════════════════════════
+  <style>
+    /* ══════════════════════════════════════
      DESIGN TOKENS
   ══════════════════════════════════════ */
-  :root {
-    --sky: #3B82F6; --sky-deep: #1D4ED8; --sky-soft: #DBEAFE; --sky-pale: #EFF6FF;
-    --cream: #FAFAF7; --cream-warm: #F5F4F0; --white: #FFFFFF;
-    --ink: #1E293B; --ink-mid: #475569; --ink-light: #94A3B8;
-    --border: #E2E8F0; --border-soft: #F1F5F9;
-    --success: #10B981; --success-bg: #ECFDF5;
-    --danger: #EF4444; --danger-bg: #FEF2F2;
-    --warning: #F59E0B;
-    --radius: 14px; --radius-sm: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; font-size: 15px; }
+    :root {
+      --sky: #3B82F6;
+      --sky-deep: #1D4ED8;
+      --sky-soft: #DBEAFE;
+      --sky-pale: #EFF6FF;
+      --cream: #FAFAF7;
+      --cream-warm: #F5F4F0;
+      --white: #FFFFFF;
+      --ink: #1E293B;
+      --ink-mid: #475569;
+      --ink-light: #94A3B8;
+      --border: #E2E8F0;
+      --border-soft: #F1F5F9;
+      --success: #10B981;
+      --success-bg: #ECFDF5;
+      --danger: #EF4444;
+      --danger-bg: #FEF2F2;
+      --warning: #F59E0B;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
 
-  /* ── NAV ── */
-  nav { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
-  .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
-  .nav-brand .dot { width: 8px; height: 8px; background: var(--sky); border-radius: 50%; display: inline-block; }
-  .nav-actions { display: flex; align-items: center; gap: 10px; }
-  .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-mid); background: var(--sky-pale); padding: 5px 12px; border-radius: 20px; }
-  .user-badge .avatar { width: 24px; height: 24px; background: var(--sky); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700; }
-  .btn-nav-logout { background: transparent; color: var(--ink-mid); border: 1px solid var(--border); padding: 7px 18px; border-radius: 8px; font-size: 14px; font-family: inherit; cursor: pointer; }
-  .btn-nav-logout:hover { border-color: var(--sky); color: var(--sky); }
-  .btn-back { background: transparent; color: var(--ink-mid); border: 1px solid var(--border); padding: 7px 14px; border-radius: 8px; font-size: 13px; font-family: inherit; cursor: pointer; text-decoration: none; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  /* ── PAGES ── */
-  .page { display: none; }
-  .page.active { display: block; }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 15px;
+    }
 
-  /* ── LOGIN ── */
-  .login-wrap { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; padding: 24px; background: linear-gradient(160deg, var(--sky-pale) 0%, var(--cream) 60%); }
-  .login-card { background: var(--white); border-radius: 20px; border: 1px solid var(--border); padding: 40px; width: 100%; max-width: 380px; box-shadow: 0 8px 40px rgba(59,130,246,0.1); }
-  .login-card .login-icon { width: 52px; height: 52px; background: var(--sky-soft); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; }
-  .login-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .login-card .sub { font-size: 14px; color: var(--ink-mid); margin-bottom: 28px; }
-  .login-err { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; display: none; }
+    /* ── NAV ── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-  /* ── FORMS ── */
-  .form-group { margin-bottom: 16px; }
-  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
-  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
-  .form-group textarea { resize: vertical; min-height: 80px; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .btn-primary { width: 100%; padding: 11px; background: var(--sky); color: white; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
-  .btn-primary:hover { background: var(--sky-deep); }
-  .btn-submit { padding: 10px 24px; background: var(--sky); color: white; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px; }
-  .btn-submit:hover { background: var(--sky-deep); }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 17px;
+    }
 
-  /* ── DASHBOARD LAYOUT ── */
-  .dash-wrap { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
-  .sidebar { background: var(--white); border-right: 1px solid var(--border); padding: 24px 0; }
-  .sidebar-section { padding: 0 16px; margin-bottom: 8px; }
-  .sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-light); padding: 0 8px; margin-bottom: 6px; margin-top: 16px; display: block; }
-  .sidebar-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border-radius: var(--radius-sm); border: none; background: transparent; font-family: inherit; font-size: 14px; color: var(--ink-mid); cursor: pointer; text-align: left; transition: all 0.12s; font-weight: 500; }
-  .sidebar-btn:hover { background: var(--sky-pale); color: var(--sky-deep); }
-  .sidebar-btn.active { background: var(--sky-soft); color: var(--sky-deep); font-weight: 600; }
-  .sidebar-btn .icon { font-size: 16px; }
-  .dash-main { background: var(--cream); padding: 28px; overflow-y: auto; }
-  .dash-section { display: none; }
-  .dash-section.active { display: block; }
-  .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-  .dash-header h2 { font-size: 20px; font-weight: 700; }
+    .nav-brand .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--sky);
+      border-radius: 50%;
+      display: inline-block;
+    }
 
-  /* ── STAT CARDS ── */
-  .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
-  .stat-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); padding: 18px; box-shadow: var(--shadow); }
-  .stat-card .stat-label { font-size: 12px; color: var(--ink-light); font-weight: 500; margin-bottom: 6px; }
-  .stat-card .stat-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-  .stat-card .stat-unit { font-size: 13px; font-weight: 400; color: var(--ink-mid); }
-  .stat-card.blue { border-top: 3px solid var(--sky); }
-  .stat-card.green { border-top: 3px solid var(--success); }
-  .stat-card.amber { border-top: 3px solid var(--warning); }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  /* ── FORM PANEL ── */
-  .form-panel { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; box-shadow: var(--shadow); margin-bottom: 24px; max-width: 580px; }
-  .form-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; gap: 8px; }
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--ink-mid);
+      background: var(--sky-pale);
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
 
-  /* ── TABLE ── */
-  .table-panel { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
-  .table-panel table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .table-panel th { background: var(--cream-warm); padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-light); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .table-panel td { padding: 11px 14px; border-bottom: 1px solid var(--border-soft); color: var(--ink); }
-  .table-panel tr:last-child td { border-bottom: none; }
-  .table-panel tr:hover td { background: var(--sky-pale); }
-  .section-title { font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 16px; }
+    .user-badge .avatar {
+      width: 24px;
+      height: 24px;
+      background: var(--sky);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+    }
 
-  /* ── ALERTS ── */
-  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 14px; margin-top: 12px; display: none; }
-  .alert.success { background: var(--success-bg); color: #065F46; border: 1px solid #A7F3D0; }
-  .alert.error { background: var(--danger-bg); color: #991B1B; border: 1px solid #FECACA; }
-  .alert.loading { background: var(--sky-pale); color: var(--sky-deep); border: 1px solid var(--sky-soft); }
+    .btn-nav-logout {
+      background: transparent;
+      color: var(--ink-mid);
+      border: 1px solid var(--border);
+      padding: 7px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+    }
 
-  /* ── MISC ── */
-  .loading-overlay { text-align: center; padding: 40px; color: var(--ink-light); font-size: 14px; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
-  .badge.active { background: var(--success-bg); color: #065F46; }
-  .badge.inactive { background: var(--border-soft); color: var(--ink-light); }
-  .income { color: var(--success); font-weight: 600; }
-  .expense { color: var(--danger); font-weight: 600; }
-  .chicken-code { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--sky); background: var(--sky-pale); padding: 3px 8px; border-radius: 4px; }
+    .btn-nav-logout:hover {
+      border-color: var(--sky);
+      color: var(--sky);
+    }
 
-  /* ── RESPONSIVE ── */
-  @media (max-width: 700px) {
-    .dash-wrap { grid-template-columns: 1fr; }
-    .sidebar { display: none; }
-    .form-row { grid-template-columns: 1fr; }
-    .stats-row { grid-template-columns: 1fr 1fr; }
-  }
-</style>
+    .btn-back {
+      background: transparent;
+      color: var(--ink-mid);
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    /* ── PAGES ── */
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* ── LOGIN ── */
+    .login-wrap {
+      min-height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(160deg, var(--sky-pale) 0%, var(--cream) 60%);
+    }
+
+    .login-card {
+      background: var(--white);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      padding: 40px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 8px 40px rgba(59, 130, 246, 0.1);
+    }
+
+    .login-card .login-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--sky-soft);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .login-card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .login-card .sub {
+      font-size: 14px;
+      color: var(--ink-mid);
+      margin-bottom: 28px;
+    }
+
+    .login-err {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 10px;
+      text-align: center;
+      display: none;
+    }
+
+    /* ── FORMS ── */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--sky);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .btn-primary:hover {
+      background: var(--sky-deep);
+    }
+
+    .btn-submit {
+      padding: 10px 24px;
+      background: var(--sky);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    .btn-submit:hover {
+      background: var(--sky-deep);
+    }
+
+    /* ── DASHBOARD LAYOUT ── */
+    .dash-wrap {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: calc(100vh - 60px);
+    }
+
+    .sidebar {
+      background: var(--white);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+    }
+
+    .sidebar-section {
+      padding: 0 16px;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      padding: 0 8px;
+      margin-bottom: 6px;
+      margin-top: 16px;
+      display: block;
+    }
+
+    .sidebar-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--ink-mid);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s;
+      font-weight: 500;
+    }
+
+    .sidebar-btn:hover {
+      background: var(--sky-pale);
+      color: var(--sky-deep);
+    }
+
+    .sidebar-btn.active {
+      background: var(--sky-soft);
+      color: var(--sky-deep);
+      font-weight: 600;
+    }
+
+    .sidebar-btn .icon {
+      font-size: 16px;
+    }
+
+    .dash-main {
+      background: var(--cream);
+      padding: 28px;
+      overflow-y: auto;
+    }
+
+    .dash-section {
+      display: none;
+    }
+
+    .dash-section.active {
+      display: block;
+    }
+
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .dash-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    /* ── STAT CARDS ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: var(--ink-light);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .stat-card .stat-unit {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--ink-mid);
+    }
+
+    .stat-card.blue {
+      border-top: 3px solid var(--sky);
+    }
+
+    .stat-card.green {
+      border-top: 3px solid var(--success);
+    }
+
+    .stat-card.amber {
+      border-top: 3px solid var(--warning);
+    }
+
+    /* ── FORM PANEL ── */
+    .form-panel {
+      background: var(--white);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      max-width: 580px;
+    }
+
+    .form-panel h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-soft);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── TABLE ── */
+    .table-panel {
+      background: var(--white);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .table-panel table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table-panel th {
+      background: var(--cream-warm);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .table-panel td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--ink);
+    }
+
+    .table-panel tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table-panel tr:hover td {
+      background: var(--sky-pale);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 16px;
+    }
+
+    /* ── ALERTS ── */
+    .alert {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .alert.success {
+      background: var(--success-bg);
+      color: #065F46;
+      border: 1px solid #A7F3D0;
+    }
+
+    .alert.error {
+      background: var(--danger-bg);
+      color: #991B1B;
+      border: 1px solid #FECACA;
+    }
+
+    .alert.loading {
+      background: var(--sky-pale);
+      color: var(--sky-deep);
+      border: 1px solid var(--sky-soft);
+    }
+
+    /* ── MISC ── */
+    .loading-overlay {
+      text-align: center;
+      padding: 40px;
+      color: var(--ink-light);
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .badge.active {
+      background: var(--success-bg);
+      color: #065F46;
+    }
+
+    .badge.inactive {
+      background: var(--border-soft);
+      color: var(--ink-light);
+    }
+
+    .income {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .expense {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .chicken-code {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--sky);
+      background: var(--sky-pale);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 700px) {
+      .dash-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- ── NAV ── -->
-<nav>
-  <div class="nav-brand"><span class="dot"></span> LittleFarm Admin</div>
-  <div class="nav-actions" id="navActions">
-    <a class="btn-back" href="index.html">← หน้าหลัก</a>
-  </div>
-</nav>
+  <!-- ── NAV ── -->
+  <nav>
+    <div class="nav-brand"><span class="dot"></span> LittleFarm Admin</div>
+    <div class="nav-actions" id="navActions">
+      <a class="btn-back" href="index.html">← หน้าหลัก</a>
+    </div>
+  </nav>
 
-<!-- ══════════════════ LOGIN PAGE ══════════════════ -->
-<div id="loginPage" class="page active">
-  <div class="login-wrap">
-    <div class="login-card">
-      <div class="login-icon">🔐</div>
-      <h2>เข้าสู่ระบบ</h2>
-      <p class="sub">สำหรับผู้ดูแลระบบ LittleFarm เท่านั้น</p>
-      <div class="form-group">
-        <label>ชื่อผู้ใช้</label>
-        <input type="text" id="loginUser" placeholder="username">
+  <!-- ══════════════════ LOGIN PAGE ══════════════════ -->
+  <div id="loginPage" class="page active">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-icon">🔐</div>
+        <h2>เข้าสู่ระบบ</h2>
+        <p class="sub">สำหรับผู้ดูแลระบบ LittleFarm เท่านั้น</p>
+        <div class="form-group">
+          <label>ชื่อผู้ใช้</label>
+          <input type="text" id="loginUser" placeholder="username">
+        </div>
+        <div class="form-group">
+          <label>รหัสผ่าน</label>
+          <input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()">
+        </div>
+        <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
+        <div id="loginErr" class="login-err">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
       </div>
-      <div class="form-group">
-        <label>รหัสผ่าน</label>
-        <input type="password" id="loginPass" placeholder="••••••••"
-          onkeydown="if(event.key==='Enter') doLogin()">
-      </div>
-      <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
-      <div id="loginErr" class="login-err">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
     </div>
   </div>
-</div>
 
-<!-- ══════════════════ DASHBOARD PAGE ══════════════════ -->
-<div id="dashPage" class="page">
-  <div class="dash-wrap">
+  <!-- ══════════════════ DASHBOARD PAGE ══════════════════ -->
+  <div id="dashPage" class="page">
+    <div class="dash-wrap">
 
-    <!-- ── SIDEBAR ── -->
-    <div class="sidebar">
-      <div class="sidebar-section">
-        <span class="sidebar-label">ภาพรวม</span>
-        <button class="sidebar-btn active" onclick="showDash('overview', this)">
-          <span class="icon">📊</span> ภาพรวม
-        </button>
+      <!-- ── SIDEBAR ── -->
+      <div class="sidebar">
+        <div class="sidebar-section">
+          <span class="sidebar-label">ภาพรวม</span>
+          <button class="sidebar-btn active" onclick="showDash('overview', this)">
+            <span class="icon">📊</span> ภาพรวม
+          </button>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-label">บันทึกข้อมูล</span>
+          <button class="sidebar-btn" onclick="showDash('hatch', this)">
+            <span class="icon">🥚</span> การฟักไข่
+          </button>
+          <button class="sidebar-btn" onclick="showDash('expense', this)">
+            <span class="icon">💸</span> รายจ่าย
+          </button>
+          <button class="sidebar-btn" onclick="showDash('revenue', this)">
+            <span class="icon">💰</span> รายได้
+          </button>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-label">ข้อมูล</span>
+          <button class="sidebar-btn" onclick="showDash('chicken_list', this)">
+            <span class="icon">🐓</span> รายชื่อไก่
+          </button>
+        </div>
       </div>
-      <div class="sidebar-section">
-        <span class="sidebar-label">บันทึกข้อมูล</span>
-        <button class="sidebar-btn" onclick="showDash('hatch', this)">
-          <span class="icon">🥚</span> การฟักไข่
-        </button>
-        <button class="sidebar-btn" onclick="showDash('expense', this)">
-          <span class="icon">💸</span> รายจ่าย
-        </button>
-        <button class="sidebar-btn" onclick="showDash('revenue', this)">
-          <span class="icon">💰</span> รายได้
-        </button>
-      </div>
-      <div class="sidebar-section">
-        <span class="sidebar-label">ข้อมูล</span>
-        <button class="sidebar-btn" onclick="showDash('chicken_list', this)">
-          <span class="icon">🐓</span> รายชื่อไก่
-        </button>
-      </div>
+
+      <!-- ── MAIN CONTENT ── -->
+      <div class="dash-main">
+
+        <!-- ─ ภาพรวม ─ -->
+        <div id="dash-overview" class="dash-section active">
+          <div class="dash-header">
+            <h2>📊 ภาพรวม</h2>
+          </div>
+          <div class="stats-row" id="statsRow">
+            <div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>
+          </div>
+          <div class="section-title">รายรับ-รายจ่ายรายเดือน</div>
+          <div class="table-panel" style="padding:24px;">
+            <canvas id="monthlyChart" style="max-height:300px;"></canvas>
+          </div>
+          <div class="section-title">รายการล่าสุด</div>
+          <div class="table-panel" id="recentTable">
+            <div class="loading-overlay">⏳</div>
+          </div>
+        </div>
+
+        <!-- ─ บันทึกการฟักไข่ ─ -->
+        <div id="dash-hatch" class="dash-section">
+          <div class="dash-header">
+            <h2>🥚 บันทึกการฟักไข่</h2>
+          </div>
+          <div class="form-panel">
+            <h3>🥚 EggHatchingKitData</h3>
+            <div class="form-group">
+              <label>ID (อัตโนมัติ)</label>
+              <input type="text" id="h_nextId" disabled placeholder="T067"
+                style="background:var(--cream-warm);color:var(--ink-light)">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ชื่อ/รหัสแม่ไก่</label>
+                <input type="text" id="h_mother" placeholder="เช่น เชอริน">
+              </div>
+              <div class="form-group">
+                <label>ชื่อ/รหัสพ่อไก่</label>
+                <input type="text" id="h_father" placeholder="เช่น ลูกทองดำ">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>รหัสแม่ - พ่อ</label>
+                <input type="text" id="h_parentCode" placeholder="เช่น SM001 - JR001">
+              </div>
+              <div class="form-group">
+                <label>ชุดที่ (นับรอบของตัวเมีย)</label>
+                <input type="number" id="h_kitRound" placeholder="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>วันที่ฟักออกจากไข่</label>
+                <input type="date" id="h_hatchDate">
+              </div>
+              <div class="form-group">
+                <label>วันที่เริ่มไข่ฟองแรก</label>
+                <input type="date" id="h_firstEggDate">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>วันที่เริ่มกกไข่</label>
+                <input type="date" id="h_startIncubateDate">
+              </div>
+              <div class="form-group">
+                <label>จำนวนฟอง</label>
+                <input type="number" id="h_eggCount" placeholder="0" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>จำนวนลูกเจี๊ยบที่ฟัก</label>
+                <input type="number" id="h_hatchedCount" placeholder="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>ลูกเจี๊ยบตัวผู้</label>
+                <input type="number" id="h_maleCount" placeholder="0" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ลูกเจี๊ยบตัวเมีย</label>
+                <input type="number" id="h_femaleCount" placeholder="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>เบอกิ๊ฟปีกรวม</label>
+                <input type="text" id="h_wingTag" placeholder="เช่น 040-047">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>สีข้อขา</label>
+                <input type="text" id="h_legColor" placeholder="เช่น ฟ้า">
+              </div>
+              <div class="form-group">
+                <label>ขายไปแล้วกี่ตัว</label>
+                <input type="number" id="h_soldCount" placeholder="0" step="1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Remark</label>
+              <input type="text" id="h_remark" placeholder="หมายเหตุ">
+            </div>
+            <button class="btn-submit" onclick="submitHatch()">💾 บันทึกข้อมูลการฟักไข่</button>
+            <div id="h_alert" class="alert"></div>
+          </div>
+        </div>
+
+        <!-- ─ บันทึกรายจ่าย ─ -->
+        <div id="dash-expense" class="dash-section">
+          <div class="dash-header">
+            <h2>💸 บันทึกรายจ่าย</h2>
+          </div>
+          <div class="form-panel">
+            <h3>💸 Expense</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>A. วันที่</label>
+                <input type="date" id="e_date">
+              </div>
+              <div class="form-group">
+                <label>B. รายการ</label>
+                <input type="text" id="e_item" placeholder="รายละเอียดรายจ่าย">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>C. หน่วย</label>
+                <input type="text" id="e_unit" placeholder="เช่น กก., ถุง, ขวด, ตัน">
+              </div>
+              <div class="form-group">
+                <label>D. จำนวน</label>
+                <input type="number" id="e_quantity" placeholder="0" step="0.01">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>E. ราคารวม (บาท)</label>
+                <input type="number" id="e_totalPrice" placeholder="0.00" step="0.01">
+              </div>
+              <div class="form-group">
+                <label>F. หมวดหมู่</label>
+                <select id="e_category">
+                  <option value="">-- เลือกหมวด --</option>
+                  <option>อาหารไก่</option>
+                  <option>ยาและวิตามิน</option>
+                  <option>อุปกรณ์</option>
+                  <option>ค่าแรง</option>
+                  <option>ค่าน้ำ / ค่าไฟ</option>
+                  <option>ซื้อไก่</option>
+                  <option>ค่าเดินทาง</option>
+                  <option>อื่นๆ</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-submit" onclick="submitExpense()">💾 บันทึกรายจ่าย</button>
+            <div id="e_alert" class="alert"></div>
+          </div>
+        </div>
+
+        <!-- ─ บันทึกรายได้ ─ -->
+        <div id="dash-revenue" class="dash-section">
+          <div class="dash-header">
+            <h2>💰 บันทึกรายได้</h2>
+          </div>
+          <div class="form-panel">
+            <h3>💰 Revenue</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>วันที่</label>
+                <input type="date" id="r_date">
+              </div>
+              <div class="form-group">
+                <label>เพศ</label>
+                <select id="r_sex">
+                  <option value="">-- เลือก --</option>
+                  <option>ผู้</option>
+                  <option>เมีย</option>
+                  <option>ผสม</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>รายการ</label>
+                <input type="text" id="r_item" placeholder="เช่น ขายไก่กำ, ขายไข่">
+              </div>
+              <div class="form-group">
+                <label>จำนวนตัว</label>
+                <input type="number" id="r_quantity" placeholder="0" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ราคาไก่ (บาท)</label>
+                <input type="number" id="r_price" placeholder="0.00" step="0.01">
+              </div>
+              <div class="form-group">
+                <label>ค่ามัดจำ (บาท)</label>
+                <input type="number" id="r_deposit" placeholder="0.00" step="0.01">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Remark</label>
+                <input type="text" id="r_remark" placeholder="หมายเหตุ">
+              </div>
+              <div class="form-group">
+                <label>คนซื้อ</label>
+                <input type="text" id="r_buyer" placeholder="ชื่อผู้ซื้อ">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ค่าส่ง (บาท)</label>
+                <input type="number" id="r_delivery" placeholder="0.00" step="0.01">
+              </div>
+              <div class="form-group">
+                <label>สถานที่ส่ง</label>
+                <input type="text" id="r_location" placeholder="เช่น ตลาด, บ้าน">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ส่งยัง</label>
+                <input type="text" id="r_sentTo" placeholder="ส่งไปยังใคร">
+              </div>
+              <div class="form-group">
+                <label>ค่าเลี้ยง/ค่าแรงคนจับ (บาท)</label>
+                <input type="number" id="r_labor" placeholder="0.00" step="0.01">
+              </div>
+            </div>
+            <button class="btn-submit" onclick="submitRevenue()">💾 บันทึกรายได้</button>
+            <div id="r_alert" class="alert"></div>
+          </div>
+        </div>
+
+        <!-- ─ รายชื่อไก่ ─ -->
+        <div id="dash-chicken_list" class="dash-section">
+          <div class="dash-header">
+            <h2>🐓 พ่อพันธุ์-แม่พันธุ์</h2>
+          </div>
+          <div class="table-panel" id="fullChickenTable">
+            <div class="loading-overlay">⏳ กำลังโหลด...</div>
+          </div>
+        </div>
+
+      </div><!-- dash-main -->
     </div>
-
-    <!-- ── MAIN CONTENT ── -->
-    <div class="dash-main">
-
-      <!-- ─ ภาพรวม ─ -->
-      <div id="dash-overview" class="dash-section active">
-        <div class="dash-header"><h2>📊 ภาพรวม</h2></div>
-        <div class="stats-row" id="statsRow">
-          <div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>
-        </div>
-        <div class="section-title">รายการล่าสุด</div>
-        <div class="table-panel" id="recentTable">
-          <div class="loading-overlay">⏳</div>
-        </div>
-      </div>
-
-      <!-- ─ บันทึกการฟักไข่ ─ -->
-      <div id="dash-hatch" class="dash-section">
-        <div class="dash-header"><h2>🥚 บันทึกการฟักไข่</h2></div>
-        <div class="form-panel">
-          <h3>🥚 EggHatchingKitData</h3>
-          <div class="form-group">
-            <label>ID (อัตโนมัติ)</label>
-            <input type="text" id="h_nextId" disabled placeholder="T067"
-              style="background:var(--cream-warm);color:var(--ink-light)">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>ชื่อ/รหัสแม่ไก่</label>
-              <input type="text" id="h_mother" placeholder="เช่น เชอริน">
-            </div>
-            <div class="form-group">
-              <label>ชื่อ/รหัสพ่อไก่</label>
-              <input type="text" id="h_father" placeholder="เช่น ลูกทองดำ">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>รหัสแม่ - พ่อ</label>
-              <input type="text" id="h_parentCode" placeholder="เช่น SM001 - JR001">
-            </div>
-            <div class="form-group">
-              <label>ชุดที่ (นับรอบของตัวเมีย)</label>
-              <input type="number" id="h_kitRound" placeholder="1">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>รายการ</label>
-            <input type="text" id="h_item" placeholder="รายละเอียด">
-          </div>
-          <div class="form-group">
-            <label>วันที่ฟักออกจากไข่</label>
-            <input type="date" id="h_hatchDate">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>เบอกิ๊ฟปีกรวม</label>
-              <input type="text" id="h_wingTag" placeholder="เช่น 040-047">
-            </div>
-            <div class="form-group">
-              <label>สีข้อขา</label>
-              <input type="text" id="h_legColor" placeholder="เช่น ฟ้า">
-            </div>
-          </div>
-          <button class="btn-submit" onclick="submitHatch()">💾 บันทึกข้อมูลการฟักไข่</button>
-          <div id="h_alert" class="alert"></div>
-        </div>
-      </div>
-
-      <!-- ─ บันทึกรายจ่าย ─ -->
-      <div id="dash-expense" class="dash-section">
-        <div class="dash-header"><h2>💸 บันทึกรายจ่าย</h2></div>
-        <div class="form-panel">
-          <h3>💸 Expense</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label>วันที่</label>
-              <input type="date" id="e_date">
-            </div>
-            <div class="form-group">
-              <label>หมวดหมู่</label>
-              <select id="e_category">
-                <option value="">-- เลือกหมวด --</option>
-                <option>อาหารไก่</option>
-                <option>ยาและวิตามิน</option>
-                <option>อุปกรณ์</option>
-                <option>ค่าแรง</option>
-                <option>ค่าน้ำ / ค่าไฟ</option>
-                <option>ซื้อไก่</option>
-                <option>ค่าเดินทาง</option>
-                <option>อื่นๆ</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>รายการ</label>
-            <input type="text" id="e_item" placeholder="รายละเอียดรายจ่าย">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>จำนวนเงิน (บาท)</label>
-              <input type="number" id="e_amount" placeholder="0.00" step="0.01">
-            </div>
-            <div class="form-group">
-              <label>ผู้จ่าย</label>
-              <input type="text" id="e_paidBy" placeholder="ชื่อผู้จ่าย">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>หมายเหตุ</label>
-            <textarea id="e_note" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
-          </div>
-          <button class="btn-submit" onclick="submitExpense()">💾 บันทึกรายจ่าย</button>
-          <div id="e_alert" class="alert"></div>
-        </div>
-      </div>
-
-      <!-- ─ บันทึกรายได้ ─ -->
-      <div id="dash-revenue" class="dash-section">
-        <div class="dash-header"><h2>💰 บันทึกรายได้</h2></div>
-        <div class="form-panel">
-          <h3>💰 Revenue</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label>วันที่</label>
-              <input type="date" id="r_date">
-            </div>
-            <div class="form-group">
-              <label>ประเภทรายได้</label>
-              <select id="r_type">
-                <option value="">-- เลือกประเภท --</option>
-                <option>ขายไก่</option>
-                <option>ขายไข่</option>
-                <option>ค่าผสมพันธุ์</option>
-                <option>ขายลูกไก่</option>
-                <option>รางวัลจากการชน</option>
-                <option>อื่นๆ</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>รายการ</label>
-            <input type="text" id="r_item" placeholder="รายละเอียดรายได้">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>จำนวนเงิน (บาท)</label>
-              <input type="number" id="r_amount" placeholder="0.00" step="0.01">
-            </div>
-            <div class="form-group">
-              <label>ผู้รับ / บันทึก</label>
-              <input type="text" id="r_receivedBy" placeholder="ชื่อ">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>หมายเหตุ</label>
-            <textarea id="r_note" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
-          </div>
-          <button class="btn-submit" onclick="submitRevenue()">💾 บันทึกรายได้</button>
-          <div id="r_alert" class="alert"></div>
-        </div>
-      </div>
-
-      <!-- ─ รายชื่อไก่ ─ -->
-      <div id="dash-chicken_list" class="dash-section">
-        <div class="dash-header"><h2>🐓 รายชื่อไก่ทั้งหมด</h2></div>
-        <div class="table-panel" id="fullChickenTable">
-          <div class="loading-overlay">⏳ กำลังโหลด...</div>
-        </div>
-      </div>
-
-    </div><!-- dash-main -->
   </div>
-</div>
 
-<!-- ══════════════════ JAVASCRIPT ══════════════════ -->
-<script>
-/* ── FETCH (JSONP) ── */
-function fetchSheet(sheetConfig) {
-  const sheetName = sheetConfig.name;
-  const headerRow = sheetConfig.headerRow || 1;
-  return new Promise((resolve) => {
-    const cbName = 'cb_' + Math.random().toString(36).slice(2);
-    const script = document.createElement('script');
-    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&headerRow=${headerRow}&callback=${cbName}`;
-    let done = false;
-    const timeout = setTimeout(() => { if (!done) { done = true; cleanup(); resolve([]); } }, 15000);
-    window[cbName] = (data) => {
-      if (done) return; done = true; cleanup();
-      resolve(Array.isArray(data) ? data.filter(row => Object.values(row).some(v => v !== '' && v !== null)) : []);
-    };
-    function cleanup() { clearTimeout(timeout); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
-    script.onerror = () => { if (!done) { done = true; cleanup(); resolve([]); } };
-    script.src = url;
-    document.head.appendChild(script);
-  });
-}
+  <!-- ══════════════════ JAVASCRIPT ══════════════════ -->
+  <script>
+    /* ── FETCH (JSONP) ── */
+    function fetchSheet(sheetConfig) {
+      const sheetName = sheetConfig.name;
+      const headerRow = sheetConfig.headerRow || 1;
+      return new Promise((resolve) => {
+        const cbName = 'cb_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&headerRow=${headerRow}&callback=${cbName}`;
+        let done = false;
+        const timeout = setTimeout(() => { if (!done) { done = true; cleanup(); resolve([]); } }, 15000);
+        window[cbName] = (data) => {
+          if (done) return; done = true; cleanup();
+          resolve(Array.isArray(data) ? data.filter(row => Object.values(row).some(v => v !== '' && v !== null)) : []);
+        };
+        function cleanup() { clearTimeout(timeout); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
+        script.onerror = () => { if (!done) { done = true; cleanup(); resolve([]); } };
+        script.src = url;
+        document.head.appendChild(script);
+      });
+    }
 
-/* ── AUTH ── */
-function doLogin() {
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  if (u === ADMIN_USER && p === ADMIN_PASS) {
-    document.getElementById('loginErr').style.display = 'none';
-    document.getElementById('navActions').innerHTML = `
+    /* ── AUTH ── */
+    function doLogin() {
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value;
+      if (u === ADMIN_USER && p === ADMIN_PASS) {
+        document.getElementById('loginErr').style.display = 'none';
+        document.getElementById('navActions').innerHTML = `
       <div class="user-badge"><div class="avatar">S</div> ${u}</div>
       <button class="btn-nav-logout" onclick="doLogout()">ออกจากระบบ</button>
     `;
-    showPage('dashPage');
-    loadDashData();
-    const today = new Date().toISOString().split('T')[0];
-    ['h_hatchDate','e_date','r_date'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = today;
-    });
-  } else {
-    document.getElementById('loginErr').style.display = 'block';
-  }
-}
+        showPage('dashPage');
+        loadDashData();
+        const today = new Date().toISOString().split('T')[0];
+        ['h_hatchDate', 'e_date', 'r_date'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.value = today;
+        });
+      } else {
+        document.getElementById('loginErr').style.display = 'block';
+      }
+    }
 
-function doLogout() {
-  document.getElementById('navActions').innerHTML = `<a class="btn-back" href="index.html">← หน้าหลัก</a>`;
-  showPage('loginPage');
-}
+    function doLogout() {
+      document.getElementById('navActions').innerHTML = `<a class="btn-back" href="index.html">← หน้าหลัก</a>`;
+      showPage('loginPage');
+    }
 
-/* ── PAGE/SECTION ROUTING ── */
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
+    /* ── PAGE/SECTION ROUTING ── */
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
 
-function showDash(section, btn) {
-  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
-  document.getElementById(`dash-${section}`).classList.add('active');
-  document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  if (section === 'chicken_list') renderFullChickenTable();
-  if (section === 'hatch') updateNextId();
-}
+    function showDash(section, btn) {
+      document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+      document.getElementById(`dash-${section}`).classList.add('active');
+      document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      if (section === 'chicken_list') renderFullChickenTable();
+      if (section === 'hatch') updateNextId();
+    }
 
-function updateNextId() {
-  const lastId = db.hatch
-    .map(r => parseInt((r['ID'] || 'T000').replace('T', '')))
-    .filter(n => !isNaN(n))
-    .reduce((max, n) => Math.max(max, n), 0);
-  const nextId = 'T' + String(lastId + 1).padStart(3, '0');
-  const el = document.getElementById('h_nextId');
-  if (el) el.placeholder = nextId;
-}
+    function updateNextId() {
+      const lastId = db.hatch
+        .map(r => parseInt((r['ID'] || 'T000').replace('T', '')))
+        .filter(n => !isNaN(n))
+        .reduce((max, n) => Math.max(max, n), 0);
+      const nextId = 'T' + String(lastId + 1).padStart(3, '0');
+      const el = document.getElementById('h_nextId');
+      if (el) el.placeholder = nextId;
+    }
 
-/* ── LOAD DATA ── */
-async function loadDashData() {
-  document.getElementById('statsRow').innerHTML = '<div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>';
-  db.chickens = await fetchSheet(SHEET_NAMES.chickens);
-  db.hatch    = await fetchSheet(SHEET_NAMES.hatch);
-  db.expense  = await fetchSheet(SHEET_NAMES.expense);
-  db.revenue  = await fetchSheet(SHEET_NAMES.revenue);
-  renderStats();
-  renderRecentTable();
-}
+    /* ── LOAD DATA ── */
+    async function loadDashData() {
+      document.getElementById('statsRow').innerHTML = '<div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>';
+      db.chickens = await fetchSheet(SHEET_NAMES.chickens);
+      db.hatch = await fetchSheet(SHEET_NAMES.hatch);
+      db.expense = await fetchSheet(SHEET_NAMES.expense);
+      db.revenue = await fetchSheet(SHEET_NAMES.revenue);
+      renderStats();
+      renderRecentTable();
+    }
 
-/* ── UTILS ── */
-function formatDateTH(dateStr) {
-  if (!dateStr) return '';
-  const [y, m, d] = dateStr.split('-');
-  return `${d}/${m}/${y}`;
-}
-function formatDateOnly(dateStr) {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-function fmtMoney(n) {
-  const num = parseFloat(String(n).replace(/,/g,'')) || 0;
-  return num.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function sumAmount(rows, field) {
-  return rows.reduce((s, r) => s + (parseFloat(String(r[field]||'0').replace(/,/g,''))||0), 0);
-}
-function calcAge(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split('/');
-  if (parts.length !== 3) return null;
-  const [d, m, y] = parts.map(Number);
-  const birth = new Date(y, m-1, d);
-  const diff = Math.floor((new Date() - birth) / 86400000);
-  const years = Math.floor(diff/365), remDays = diff%365;
-  const months = Math.floor(remDays/30), days = remDays%30;
-  if (years > 0) return `${years} ปี ${months} เดือน ${days} วัน`;
-  if (months > 0) return `${months} เดือน ${days} วัน`;
-  return `${diff} วัน`;
-}
+    /* ── UTILS ── */
+    function formatDateTH(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    function formatDateOnly(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return dateStr;
+      return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function fmtMoney(n) {
+      const num = parseFloat(String(n).replace(/,/g, '')) || 0;
+      return num.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function sumAmount(rows, field) {
+      return rows.reduce((s, r) => s + (parseFloat(String(r[field] || '0').replace(/,/g, '')) || 0), 0);
+    }
+    function calcAge(dateStr) {
+      if (!dateStr) return null;
+      const parts = dateStr.split('/');
+      if (parts.length !== 3) return null;
+      const [d, m, y] = parts.map(Number);
+      const birth = new Date(y, m - 1, d);
+      const diff = Math.floor((new Date() - birth) / 86400000);
+      const years = Math.floor(diff / 365), remDays = diff % 365;
+      const months = Math.floor(remDays / 30), days = remDays % 30;
+      if (years > 0) return `${years} ปี ${months} เดือน ${days} วัน`;
+      if (months > 0) return `${months} เดือน ${days} วัน`;
+      return `${diff} วัน`;
+    }
 
-/* ── RENDER STATS ── */
-function renderStats() {
-  const activeCount = db.chickens.filter(c => c['สถานะ'] === 'Active').length;
-  const totalExp = sumAmount(db.expense, 'ราคารวม');
-  const totalRev = sumAmount(db.revenue, 'ราคาไก่');
-  const hatchCount = db.hatch.length;
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-card blue">
-      <div class="stat-label">ไก่ Active</div>
-      <div class="stat-value">${activeCount} <span class="stat-unit">ตัว</span></div>
-    </div>
+    /* ── RENDER STATS ── */
+    function renderStats() {
+      const activeCount = db.chickens.filter(c => c['สถานะ'] === 'Active').length;
+      const totalExp = db.expense.reduce((sum, r) => {
+        const qty = parseFloat(r['จำนวน']) || 0;
+        const price = parseFloat(r['ราคารวม']) || 0;
+        return sum + (price || 0);
+      }, 0);
+      const totalRev = db.revenue.reduce((sum, r) => {
+        const qty = parseFloat(r['จำนวนตัว']) || 0;
+        const price = parseFloat(r['ราคาไก่']) || 0;
+        return sum + (price);
+      }, 0);
+      const hatchCount = db.hatch.length;
+      document.getElementById('statsRow').innerHTML = `
+    
     <div class="stat-card blue">
       <div class="stat-label">ชุดฟักไข่</div>
       <div class="stat-value">${hatchCount} <span class="stat-unit">ชุด</span></div>
@@ -519,21 +1066,141 @@ function renderStats() {
       <div class="stat-label">รายได้รวม</div>
       <div class="stat-value income" style="font-size:18px">${fmtMoney(totalRev)}</div>
     </div>
-    <div class="stat-card ${totalRev-totalExp>=0?'green':'amber'}">
+    <div class="stat-card ${totalRev - totalExp >= 0 ? 'green' : 'amber'}">
       <div class="stat-label">กำไร / ขาดทุน</div>
-      <div class="stat-value" style="font-size:18px;color:${totalRev-totalExp>=0?'var(--success)':'var(--danger)'}">${fmtMoney(totalRev-totalExp)}</div>
+      <div class="stat-value" style="font-size:18px;color:${totalRev - totalExp >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtMoney(totalRev - totalExp)}</div>
     </div>`;
-}
+      renderMonthlyChart();
+    }
 
-/* ── RENDER RECENT TABLE ── */
-function renderRecentTable() {
-  const recent = [
-    ...db.expense.slice(-50).map(r => ({ type:'expense', date:r['วันที่']||'', desc:r['รายการ']||'', amount:r['ราคารวม']||'' })),
-    ...db.revenue.slice(-50).map(r => ({ type:'revenue', date:r['วันที่']||'', desc:r['รายการ']||'', amount:r['ราคาไก่']||'' })),
-  ].sort((a,b) => b.date > a.date ? 1 : -1).slice(0, 100);
+    /* ── RENDER MONTHLY CHART ── */
+    function renderMonthlyChart() {
+      const monthlyData = {};
 
-  if (!recent.length) { document.getElementById('recentTable').innerHTML = '<div class="loading-overlay">ยังไม่มีรายการ</div>'; return; }
-  document.getElementById('recentTable').innerHTML = `
+      // Process expense data
+      db.expense.forEach(r => {
+        const dateStr = r['วันที่'] || '';
+        if (!dateStr) return;
+        const month = dateStr.substring(0, 7); // YYYY-MM format
+        if (!monthlyData[month]) monthlyData[month] = { income: 0, expense: 0 };
+
+        const qty = parseFloat(r['จำนวนหน่วย']) || 0;
+        const price = parseFloat(r['ราคา']) || 0;
+        monthlyData[month].expense += (qty * price || price);
+      });
+
+      // Process revenue data
+      db.revenue.forEach(r => {
+        const dateStr = r['วันที่'] || '';
+        if (!dateStr) return;
+        const month = dateStr.substring(0, 7);
+        if (!monthlyData[month]) monthlyData[month] = { income: 0, expense: 0 };
+
+        const qty = parseFloat(r['จำนวนตัว']) || 0;
+        const price = parseFloat(r['ราคาไก่']) || 0;
+        monthlyData[month].income += (qty * price || price);
+      });
+
+      // Sort and prepare data
+      const months = Object.keys(monthlyData).sort();
+      const labels = months.map(m => {
+        const [year, month] = m.split('-');
+        const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const monthNum = parseInt(month) - 1;
+        const yearBE = parseInt(year) + 543;
+        return `${monthNames[monthNum]} ${yearBE}`;
+      });
+
+      const incomeData = months.map(m => monthlyData[m].income);
+      const expenseData = months.map(m => monthlyData[m].expense);
+
+      // Get or create chart
+      const ctx = document.getElementById('monthlyChart');
+      if (!ctx) return;
+
+      // Destroy existing chart if any
+      if (window.monthlyChartInstance) {
+        window.monthlyChartInstance.destroy();
+      }
+
+      // Create new chart
+      window.monthlyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '💰 รายรับ',
+              data: incomeData,
+              backgroundColor: '#10B981',
+              borderColor: '#059669',
+              borderWidth: 1,
+              borderRadius: 6,
+            },
+            {
+              label: '💸 รายจ่าย',
+              data: expenseData,
+              backgroundColor: '#EF4444',
+              borderColor: '#DC2626',
+              borderWidth: 1,
+              borderRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                font: { family: "'Sarabun', sans-serif", size: 14, weight: '600' },
+                color: '#1E293B',
+                padding: 15,
+                usePointStyle: true,
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'จำนวน (บาท)' },
+              ticks: {
+                font: { family: "'Sarabun', sans-serif", size: 13 },
+                color: '#94A3B8',
+                callback: (value) => fmtMoney(value).replace('฿ ', '').replace(',', '')
+              },
+              grid: { drawBorder: false, color: '#F1F5F9' }
+            },
+            x: {
+              ticks: {
+                font: { family: "'Sarabun', sans-serif", size: 13 },
+                color: '#475569'
+              },
+              grid: { display: false, drawBorder: false }
+            }
+          }
+        }
+      });
+    }
+    function renderRecentTable() {
+      const recent = [
+        ...db.expense.slice(-50).map(r => {
+          const qty = parseFloat(r['จำนวนหน่วย']) || 0;
+          const price = parseFloat(r['ราคา']) || 0;
+          const total = qty * price || price;
+          return { type: 'expense', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: total };
+        }),
+        ...db.revenue.slice(-50).map(r => {
+          const qty = parseFloat(r['จำนวนตัว']) || 0;
+          const price = parseFloat(r['ราคาไก่']) || 0;
+          const total = qty * price || price;
+          return { type: 'revenue', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: total };
+        }),
+      ].sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 100);
+
+      if (!recent.length) { document.getElementById('recentTable').innerHTML = '<div class="loading-overlay">ยังไม่มีรายการ</div>'; return; }
+      document.getElementById('recentTable').innerHTML = `
     <table>
       <thead><tr>
         <th>วันที่</th><th>ประเภท</th><th>รายการ</th><th style="text-align:right">จำนวน (บาท)</th>
@@ -541,120 +1208,146 @@ function renderRecentTable() {
       <tbody>
         ${recent.map(r => `<tr>
           <td style="white-space:nowrap">${formatDateOnly(r.date)}</td>
-          <td>${r.type==='expense'?'<span style="color:var(--danger)">💸 จ่าย</span>':'<span style="color:var(--success)">💰 รับ</span>'}</td>
-          <td>${r.desc||'-'}</td>
-          <td style="text-align:right" class="${r.type==='expense'?'expense':'income'}">${fmtMoney(r.amount)}</td>
+          <td>${r.type === 'expense' ? '<span style="color:var(--danger)">💸 จ่าย</span>' : '<span style="color:var(--success)">💰 รับ</span>'}</td>
+          <td>${r.desc || '-'}</td>
+          <td style="text-align:right" class="${r.type === 'expense' ? 'expense' : 'income'}">${fmtMoney(r.amount)}</td>
         </tr>`).join('')}
       </tbody>
     </table>`;
-}
+    }
 
-/* ── RENDER CHICKEN TABLE ── */
-function renderFullChickenTable() {
-  if (!db.chickens.length) { document.getElementById('fullChickenTable').innerHTML = '<div class="loading-overlay">⏳</div>'; return; }
-  document.getElementById('fullChickenTable').innerHTML = `
+    /* ── RENDER CHICKEN TABLE ── */
+    function renderFullChickenTable() {
+      if (!db.chickens.length) { document.getElementById('fullChickenTable').innerHTML = '<div class="loading-overlay">⏳</div>'; return; }
+      document.getElementById('fullChickenTable').innerHTML = `
     <div style="overflow:auto"><table>
       <thead><tr>
         <th>รหัส</th><th>ชื่อ</th><th>ฟาร์ม</th><th>พ่อ</th><th>แม่</th><th>เพศ</th><th>อายุ</th><th>สถานะ</th>
       </tr></thead>
       <tbody>
         ${db.chickens.map(c => `<tr>
-          <td><span class="chicken-code">${c['รหัสตั้งเอง']||'-'}</span></td>
-          <td><strong>${c['ชื่อไก่ตั้งเอง']||'-'}</strong></td>
-          <td>${c['ฟาร์มต้นสาย']||'-'}</td>
-          <td>${c['ชื่อพ่อพันธุ์']||'-'}</td>
-          <td>${c['ชื่อแม่พันธุ์']||'-'}</td>
-          <td>${c['เพศ']||'-'}</td>
-          <td style="font-size:12px;color:var(--sky-deep)">${calcAge(c['วันที่'])||'-'}</td>
-          <td><span class="badge ${(c['สถานะ']||'').toLowerCase()}">${c['สถานะ']||'-'}</span></td>
+          <td><span class="chicken-code">${c['รหัสตั้งเอง'] || '-'}</span></td>
+          <td><strong>${c['ชื่อไก่ตั้งเอง'] || '-'}</strong></td>
+          <td>${c['ฟาร์มต้นสาย'] || '-'}</td>
+          <td>${c['ชื่อพ่อพันธุ์'] || '-'}</td>
+          <td>${c['ชื่อแม่พันธุ์'] || '-'}</td>
+          <td>${c['เพศ'] || '-'}</td>
+          <td style="font-size:12px;color:var(--sky-deep)">${calcAge(c['วันที่']) || '-'}</td>
+          <td><span class="badge ${(c['สถานะ'] || '').toLowerCase()}">${c['สถานะ'] || '-'}</span></td>
         </tr>`).join('')}
       </tbody>
     </table></div>`;
-}
+    }
 
-/* ── SUBMIT ── */
-async function submitToSheet(sheetName, rowData, alertId) {
-  const alertEl = document.getElementById(alertId);
-  showAlert(alertEl, 'loading', '⏳ กำลังบันทึก...');
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet: sheetName, row: rowData }),
+    /* ── SUBMIT ── */
+    async function submitToSheet(sheetName, rowData, alertId) {
+      const alertEl = document.getElementById(alertId);
+      showAlert(alertEl, 'loading', '⏳ กำลังบันทึก...');
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST', mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheet: sheetName, row: rowData }),
+        });
+        showAlert(alertEl, 'success', '✅ บันทึกสำเร็จ!');
+        return true;
+      } catch (err) {
+        showAlert(alertEl, 'error', '❌ บันทึกไม่สำเร็จ: ' + err.message);
+        return false;
+      }
+    }
+
+    function showAlert(el, type, msg) {
+      el.className = `alert ${type}`; el.style.display = 'block'; el.textContent = msg;
+      if (type === 'success') setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    async function submitHatch() {
+      const lastId = db.hatch.map(r => parseInt((r['ID'] || 'T000').replace('T', ''))).filter(n => !isNaN(n)).reduce((max, n) => Math.max(max, n), 0);
+      const nextId = 'T' + String(lastId + 1).padStart(3, '0');
+      const row = {
+        'ID': nextId,
+        'อายุจนถึงวันปัจจุบัน': '',
+        'ชุดที่(นับรอบของตัวเมีย)': document.getElementById('h_kitRound').value,
+        'ชื่อ/รหัสแม่ไก่': document.getElementById('h_mother').value,
+        'ชื่อ/รหัสพ่อไก่': document.getElementById('h_father').value,
+        'รหัสแม่ - พ่อ': document.getElementById('h_parentCode').value,
+        'วันที่ฟักออกจากไข่': formatDateTH(document.getElementById('h_hatchDate').value),
+        'วันที่เริ่มไข่ฟองแรก': formatDateTH(document.getElementById('h_firstEggDate').value),
+        'วันที่เริ่มกกไข่': formatDateTH(document.getElementById('h_startIncubateDate').value),
+        'จำนวนฟอง': document.getElementById('h_eggCount').value,
+        'จำนวนลูกเจี๊ยบที่ฟัก': document.getElementById('h_hatchedCount').value,
+        'ลูกเจี๊ยบตัวผู้': document.getElementById('h_maleCount').value,
+        'ลูกเจี๊ยบตัวเมีย': document.getElementById('h_femaleCount').value,
+        'เบอกิ๊ฟปีกรวม': document.getElementById('h_wingTag').value,
+        'สีข้อขา': document.getElementById('h_legColor').value,
+        'ขายไปแล้วกี่ตัว': document.getElementById('h_soldCount').value,
+        'remark': document.getElementById('h_remark').value,
+      };
+      await submitToSheet('EggHatchingKitData', row, 'h_alert');
+      db.hatch.push(row);
+      renderStats();
+      updateNextId();
+    }
+
+    async function submitExpense() {
+      const row = {
+        'วันที่': formatDateTH(document.getElementById('e_date').value),
+        'รายการ': document.getElementById('e_item').value,
+        'หน่วย': document.getElementById('e_unit').value,
+        'จำนวน': document.getElementById('e_quantity').value,
+        'ราคารวม': document.getElementById('e_totalPrice').value,
+        'หมวดหมู่': document.getElementById('e_category').value,
+      };
+      await submitToSheet('Expense', row, 'e_alert');
+      db.expense.push(row);
+      renderStats();
+      renderRecentTable();
+      document.getElementById('e_date').value = '';
+      document.getElementById('e_item').value = '';
+      document.getElementById('e_unit').value = '';
+      document.getElementById('e_quantity').value = '';
+      document.getElementById('e_totalPrice').value = '';
+      document.getElementById('e_category').value = '';
+    }
+
+    async function submitRevenue() {
+      const row = {
+        'วันที่': formatDateTH(document.getElementById('r_date').value),
+        'เพศ': document.getElementById('r_sex').value,
+        'รายการ': document.getElementById('r_item').value,
+        'จำนวนตัว': document.getElementById('r_quantity').value,
+        'ราคาไก่': document.getElementById('r_price').value,
+        'ค่ามัดจำ': document.getElementById('r_deposit').value,
+        'remark': document.getElementById('r_remark').value,
+        'คนซื้อ': document.getElementById('r_buyer').value,
+        'ค่าส่ง': document.getElementById('r_delivery').value,
+        'สถานที่ส่ง': document.getElementById('r_location').value,
+        'ส่งยัง': document.getElementById('r_sentTo').value,
+        'ค่าเลี้ยงค่าแรงคนจับ': document.getElementById('r_labor').value,
+      };
+      await submitToSheet('Revenue', row, 'r_alert');
+      db.revenue.push(row);
+      renderStats();
+      renderRecentTable();
+      document.getElementById('r_date').value = '';
+      document.getElementById('r_sex').value = '';
+      document.getElementById('r_item').value = '';
+      document.getElementById('r_quantity').value = '';
+      document.getElementById('r_price').value = '';
+      document.getElementById('r_deposit').value = '';
+      document.getElementById('r_remark').value = '';
+      document.getElementById('r_buyer').value = '';
+      document.getElementById('r_delivery').value = '';
+      document.getElementById('r_location').value = '';
+      document.getElementById('r_sentTo').value = '';
+      document.getElementById('r_labor').value = '';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // ไม่โหลดข้อมูลจนกว่าจะ login
     });
-    showAlert(alertEl, 'success', '✅ บันทึกสำเร็จ!');
-    return true;
-  } catch (err) {
-    showAlert(alertEl, 'error', '❌ บันทึกไม่สำเร็จ: ' + err.message);
-    return false;
-  }
-}
-
-function showAlert(el, type, msg) {
-  el.className = `alert ${type}`; el.style.display = 'block'; el.textContent = msg;
-  if (type === 'success') setTimeout(() => el.style.display = 'none', 4000);
-}
-
-async function submitHatch() {
-  const lastId = db.hatch.map(r => parseInt((r['ID']||'T000').replace('T',''))).filter(n=>!isNaN(n)).reduce((max,n)=>Math.max(max,n),0);
-  const nextId = 'T' + String(lastId+1).padStart(3,'0');
-  const row = {
-    'ID': nextId,
-    'อายุจนถึงวันปัจจุบัน': '',
-    'ชุดที่(นับรอบของตัวเมีย)': document.getElementById('h_kitRound').value,
-    'ชื่อ/รหัสแม่ไก่': document.getElementById('h_mother').value,
-    'ชื่อ/รหัสพ่อไก่': document.getElementById('h_father').value,
-    'รหัสแม่ - พ่อ': document.getElementById('h_parentCode').value,
-    'รายการ': document.getElementById('h_item').value,
-    'วันที่ฟักออกจากไข่': formatDateTH(document.getElementById('h_hatchDate').value),
-    'เบอกิ๊ฟปีกรวม': document.getElementById('h_wingTag').value,
-    'สีข้อขา': document.getElementById('h_legColor').value,
-  };
-  await submitToSheet('EggHatchingKitData', row, 'h_alert');
-  db.hatch.push(row);
-  renderStats();
-  updateNextId();
-}
-
-async function submitExpense() {
-  const row = {
-    'วันที่': formatDateTH(document.getElementById('e_date').value),
-    'หมวดหมู่': document.getElementById('e_category').value,
-    'รายการ': document.getElementById('e_item').value,
-    'จำนวนเงิน': document.getElementById('e_amount').value,
-    'ผู้จ่าย': document.getElementById('e_paidBy').value,
-    'หมายเหตุ': document.getElementById('e_note').value,
-  };
-  await submitToSheet('Expense', row, 'e_alert');
-  db.expense.push(row);
-  renderStats();
-  renderRecentTable();
-  ['e_item','e_paidBy','e_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('e_amount').value='';
-  document.getElementById('e_category').value='';
-}
-
-async function submitRevenue() {
-  const row = {
-    'วันที่': formatDateTH(document.getElementById('r_date').value),
-    'ประเภท': document.getElementById('r_type').value,
-    'รายการ': document.getElementById('r_item').value,
-    'จำนวนเงิน': document.getElementById('r_amount').value,
-    'ผู้รับ': document.getElementById('r_receivedBy').value,
-    'หมายเหตุ': document.getElementById('r_note').value,
-  };
-  await submitToSheet('Revenue', row, 'r_alert');
-  db.revenue.push(row);
-  renderStats();
-  renderRecentTable();
-  ['r_item','r_receivedBy','r_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('r_amount').value='';
-  document.getElementById('r_type').value='';
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  // ไม่โหลดข้อมูลจนกว่าจะ login
-});
-</script>
+  </script>
 </body>
+
 </html>
