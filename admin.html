@@ -395,6 +395,18 @@
       margin-bottom: 28px;
     }
 
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .stat-card {
       background: var(--white);
       border-radius: var(--radius);
@@ -672,13 +684,37 @@
         <div id="dash-overview" class="dash-section active">
           <div class="dash-header">
             <h2>📊 ภาพรวม</h2>
+            <div class="form-group" style="margin:0;min-width:160px">
+              <select id="yearFilter" onchange="renderStats()" style="width:auto;padding:8px 14px">
+                <option value="all">ทุกปี</option>
+              </select>
+            </div>
           </div>
           <div class="stats-row" id="statsRow">
             <div class="loading-overlay" style="grid-column:1/-1">⏳ กำลังโหลด...</div>
           </div>
-          <div class="section-title">รายรับ-รายจ่ายรายเดือน</div>
+          <div class="stats-row" id="kpiRow"></div>
+          <div class="section-title">สรุปรายปี</div>
+          <div class="table-panel" id="yearlyTable">
+            <div class="loading-overlay">⏳</div>
+          </div>
+          <div class="section-title">รายรับ-รายจ่าย-กำไรสุทธิ รายเดือน</div>
           <div class="table-panel" style="padding:24px;">
-            <canvas id="monthlyChart" style="max-height:300px;"></canvas>
+            <canvas id="monthlyChart" style="max-height:320px;"></canvas>
+          </div>
+          <div class="grid-2col">
+            <div>
+              <div class="section-title">สัดส่วนรายจ่ายตามหมวดหมู่</div>
+              <div class="table-panel" style="padding:24px;">
+                <canvas id="expenseCatChart" style="max-height:280px;"></canvas>
+              </div>
+            </div>
+            <div>
+              <div class="section-title">สัดส่วนรายรับตามรายการ</div>
+              <div class="table-panel" style="padding:24px;">
+                <canvas id="revenueCatChart" style="max-height:280px;"></canvas>
+              </div>
+            </div>
           </div>
           <div class="section-title">รายการล่าสุด</div>
           <div class="table-panel" id="recentTable">
@@ -813,8 +849,8 @@
                 <label>F. หมวดหมู่</label>
                 <select id="e_category">
                   <option value="">-- เลือกหมวด --</option>
-                  <option>อาหารไก่</option>
-                  <option>ยาและวิตามิน</option>
+                  <option>อาหาร</option>
+                  <option>ยา</option>
                   <option>อุปกรณ์</option>
                   <option>ค่าแรง</option>
                   <option>ค่าน้ำ / ค่าไฟ</option>
@@ -1001,8 +1037,8 @@
       db.hatch = await fetchSheet(SHEET_NAMES.hatch);
       db.expense = await fetchSheet(SHEET_NAMES.expense);
       db.revenue = await fetchSheet(SHEET_NAMES.revenue);
-      renderStats();
-      renderRecentTable();
+      try { renderStats(); } catch (e) { console.error('renderStats error:', e); }
+      try { renderRecentTable(); } catch (e) { console.error('renderRecentTable error:', e); document.getElementById('recentTable').innerHTML = `<div class="loading-overlay">⚠️ แสดงผลไม่สำเร็จ: ${e.message}</div>`; }
     }
 
     /* ── UTILS ── */
@@ -1013,9 +1049,12 @@
     }
     function formatDateOnly(dateStr) {
       if (!dateStr) return '-';
-      const d = new Date(dateStr);
-      if (isNaN(d)) return dateStr;
-      return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const d = parseRowDate(dateStr);
+      if (!d) return dateStr;
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
     }
     function fmtMoney(n) {
       const num = parseFloat(String(n).replace(/,/g, '')) || 0;
@@ -1023,6 +1062,59 @@
     }
     function sumAmount(rows, field) {
       return rows.reduce((s, r) => s + (parseFloat(String(r[field] || '0').replace(/,/g, '')) || 0), 0);
+    }
+    function toNum(v) {
+      const n = parseFloat(String(v == null ? '' : v).replace(/,/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+    // แปลงค่าวันที่จากชีทให้เป็น Date object ที่เชื่อถือได้
+    // รองรับ: DD/MM/YYYY (รูปแบบที่ฟอร์มบันทึก), ISO YYYY-MM-DD, ISO มี timestamp
+    // (เช่น "2025-06-15T00:00:00.000Z" ที่ Apps Script มักส่งมาเมื่อเซลล์เป็น Date object จริง),
+    // และปี พ.ศ. เผื่อมีการพิมพ์ในชีทตรงๆ
+    function parseRowDate(dateStr) {
+      if (!dateStr) return null;
+      let s = String(dateStr).trim();
+      if (!s) return null;
+
+      // ตัด timestamp ออกถ้ามี เช่น "2025-06-15T00:00:00.000Z" หรือ "2025-06-15 00:00:00"
+      if (s.includes('T')) s = s.split('T')[0];
+      else if (s.includes(' ')) s = s.split(' ')[0];
+
+      let d, m, y;
+      if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length !== 3) return null;
+        // ถ้าส่วนแรกยาว 4 หลัก ถือเป็น YYYY/MM/DD ไม่งั้นถือเป็น DD/MM/YYYY
+        if (parts[0].length === 4) { [y, m, d] = parts.map(Number); }
+        else { [d, m, y] = parts.map(Number); }
+      } else if (s.includes('-')) {
+        const parts = s.split('-');
+        if (parts.length !== 3) return null;
+        if (parts[0].length === 4) { [y, m, d] = parts.map(Number); } // ISO: YYYY-MM-DD
+        else { [d, m, y] = parts.map(Number); }
+      } else {
+        // เผื่อรูปแบบอื่นๆ ที่ JS แกะเองได้ (fallback สุดท้าย)
+        const fallback = new Date(s);
+        return isNaN(fallback) ? null : fallback;
+      }
+
+      if (!d || !m || !y) return null;
+      if (y < 100) y += 2000; // เผื่อปีย่อ เช่น 25 -> 2025
+      if (y > 2400) y -= 543; // แปลงปี พ.ศ. เป็น ค.ศ.
+      const date = new Date(y, m - 1, d);
+      return isNaN(date) ? null : date;
+    }
+    function monthKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    // รายจ่าย: ฟิลด์ 'ราคารวม' คือยอดรวมต่อรายการอยู่แล้ว (ไม่ต้องคูณจำนวน)
+    function getExpenseAmount(r) {
+      return toNum(r['ราคารวม']);
+    }
+    // รายรับ: ฟิลด์ 'ราคาไก่' คือยอดขายรวมต่อรายการอยู่แล้ว (กรอกยอดรวม ไม่ใช่ราคาต่อตัว)
+    // จึงไม่ต้องคูณด้วย 'จำนวนตัว' ซ้ำ (เหมือนกับ 'ราคารวม' ฝั่งรายจ่าย)
+    function getRevenueAmount(r) {
+      return toNum(r['ราคาไก่']);
     }
     function calcAge(dateStr) {
       if (!dateStr) return null;
@@ -1038,22 +1130,64 @@
       return `${diff} วัน`;
     }
 
+    /* ── สร้างข้อมูลสรุปรายเดือน/รายปี จากข้อมูลรายรับ-รายจ่ายทั้งหมด ── */
+    function buildFinanceAggregates() {
+      const monthly = {}; // { 'YYYY-MM': {income, expense} }
+      const yearly = {};  // { 'YYYY': {income, expense} }
+
+      db.expense.forEach(r => {
+        const date = parseRowDate(r['วันที่']);
+        if (!date) return;
+        const mk = monthKey(date), yk = String(date.getFullYear());
+        if (!monthly[mk]) monthly[mk] = { income: 0, expense: 0 };
+        if (!yearly[yk]) yearly[yk] = { income: 0, expense: 0 };
+        const amt = getExpenseAmount(r);
+        monthly[mk].expense += amt;
+        yearly[yk].expense += amt;
+      });
+
+      db.revenue.forEach(r => {
+        const date = parseRowDate(r['วันที่']);
+        if (!date) return;
+        const mk = monthKey(date), yk = String(date.getFullYear());
+        if (!monthly[mk]) monthly[mk] = { income: 0, expense: 0 };
+        if (!yearly[yk]) yearly[yk] = { income: 0, expense: 0 };
+        const amt = getRevenueAmount(r);
+        monthly[mk].income += amt;
+        yearly[yk].income += amt;
+      });
+
+      return { monthly, yearly };
+    }
+
+    function populateYearFilter(yearly) {
+      const sel = document.getElementById('yearFilter');
+      if (!sel) return;
+      const current = sel.value || 'all';
+      const years = Object.keys(yearly).sort((a, b) => b - a);
+      sel.innerHTML = '<option value="all">ทุกปี</option>' +
+        years.map(y => `<option value="${y}">ปี ${y}</option>`).join('');
+      if (years.includes(current) || current === 'all') sel.value = current;
+    }
+
     /* ── RENDER STATS ── */
     function renderStats() {
+      const { monthly, yearly } = buildFinanceAggregates();
+      populateYearFilter(yearly);
+      const selectedYear = document.getElementById('yearFilter') ? document.getElementById('yearFilter').value : 'all';
+
       const activeCount = db.chickens.filter(c => c['สถานะ'] === 'Active').length;
-      const totalExp = db.expense.reduce((sum, r) => {
-        const qty = parseFloat(r['จำนวน']) || 0;
-        const price = parseFloat(r['ราคารวม']) || 0;
-        return sum + (price || 0);
-      }, 0);
-      const totalRev = db.revenue.reduce((sum, r) => {
-        const qty = parseFloat(r['จำนวนตัว']) || 0;
-        const price = parseFloat(r['ราคาไก่']) || 0;
-        return sum + (price);
-      }, 0);
       const hatchCount = db.hatch.length;
+
+      let totalExp = 0, totalRev = 0;
+      if (selectedYear === 'all') {
+        Object.values(yearly).forEach(y => { totalExp += y.expense; totalRev += y.income; });
+      } else if (yearly[selectedYear]) {
+        totalExp = yearly[selectedYear].expense;
+        totalRev = yearly[selectedYear].income;
+      }
+
       document.getElementById('statsRow').innerHTML = `
-    
     <div class="stat-card blue">
       <div class="stat-label">ชุดฟักไข่</div>
       <div class="stat-value">${hatchCount} <span class="stat-unit">ชุด</span></div>
@@ -1070,49 +1204,172 @@
       <div class="stat-label">กำไร / ขาดทุน</div>
       <div class="stat-value" style="font-size:18px;color:${totalRev - totalExp >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtMoney(totalRev - totalExp)}</div>
     </div>`;
-      renderMonthlyChart();
+
+      try { renderYearlyTable(yearly, monthly); } catch (e) { console.error('renderYearlyTable error:', e); document.getElementById('yearlyTable').innerHTML = `<div class="loading-overlay">⚠️ แสดงผลไม่สำเร็จ: ${e.message}</div>`; }
+      try { renderMonthlyChart(monthly, selectedYear); } catch (e) { console.error('renderMonthlyChart error:', e); }
+      try { renderKpiRow(monthly, selectedYear); } catch (e) { console.error('renderKpiRow error:', e); }
+      try { renderCategoryCharts(selectedYear); } catch (e) {
+        console.error('renderCategoryCharts error:', e);
+        ['expenseCatChart', 'revenueCatChart'].forEach(id => {
+          const c = document.getElementById(id);
+          if (c && c.parentNode) c.parentNode.innerHTML = `<div class="loading-overlay">⚠️ แสดงผลไม่สำเร็จ: ${e.message}</div>`;
+        });
+      }
+    }
+
+    /* ── KPI เสริม: เฉลี่ยต่อเดือน, เดือนกำไรสูงสุด/ต่ำสุด ── */
+    function renderKpiRow(monthly, selectedYear) {
+      const el = document.getElementById('kpiRow');
+      if (!el) return;
+      let months = Object.keys(monthly);
+      if (selectedYear !== 'all') months = months.filter(m => m.startsWith(selectedYear + '-'));
+      if (!months.length) { el.innerHTML = ''; return; }
+
+      const avgIncome = months.reduce((s, m) => s + monthly[m].income, 0) / months.length;
+      const avgExpense = months.reduce((s, m) => s + monthly[m].expense, 0) / months.length;
+      const profits = months.map(m => ({ m, p: monthly[m].income - monthly[m].expense }));
+      const best = profits.reduce((a, b) => (b.p > a.p ? b : a));
+      const worst = profits.reduce((a, b) => (b.p < a.p ? b : a));
+      const monthLabel = (mk) => {
+        const [y, mo] = mk.split('-');
+        const names = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        return `${names[parseInt(mo) - 1]} ${y}`;
+      };
+
+      el.innerHTML = `
+    <div class="stat-card blue">
+      <div class="stat-label">รายรับเฉลี่ย/เดือน</div>
+      <div class="stat-value income" style="font-size:16px">${fmtMoney(avgIncome)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">รายจ่ายเฉลี่ย/เดือน</div>
+      <div class="stat-value expense" style="font-size:16px">${fmtMoney(avgExpense)}</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">เดือนกำไรสูงสุด</div>
+      <div class="stat-value" style="font-size:14px">${monthLabel(best.m)}<br><span class="income" style="font-size:14px">${fmtMoney(best.p)}</span></div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">เดือนกำไรต่ำสุด</div>
+      <div class="stat-value" style="font-size:14px">${monthLabel(worst.m)}<br><span style="font-size:14px;color:${worst.p >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtMoney(worst.p)}</span></div>
+    </div>`;
+    }
+
+    /* ── สัดส่วนรายจ่าย/รายรับตามหมวดหมู่ ── */
+    function categoryBreakdown(rows, field, amountFn, selectedYear) {
+      const map = {};
+      rows.forEach(r => {
+        const date = parseRowDate(r['วันที่']);
+        if (!date) return;
+        if (selectedYear !== 'all' && String(date.getFullYear()) !== selectedYear) return;
+        const key = String(r[field] || '').trim() || 'ไม่ระบุ';
+        map[key] = (map[key] || 0) + amountFn(r);
+      });
+      return map;
+    }
+
+    function renderDoughnut(canvasId, dataMap, instanceKey) {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      const entries = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
+      const labels = entries.map(e => e[0]);
+      const data = entries.map(e => e[1]);
+      if (window[instanceKey]) window[instanceKey].destroy();
+      if (!labels.length) { ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height); return; }
+      const palette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
+      window[instanceKey] = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: labels.map((_, i) => palette[i % palette.length]) }] },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'right', labels: { font: { family: "'Sarabun', sans-serif", size: 12 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: (c) => `${c.label}: ${fmtMoney(c.parsed)} บาท` } }
+          }
+        }
+      });
+    }
+
+    function renderCategoryCharts(selectedYear) {
+      const expMap = categoryBreakdown(db.expense, 'หมวดหมู่', getExpenseAmount, selectedYear);
+      const revMap = categoryBreakdown(db.revenue, 'รายการ', getRevenueAmount, selectedYear);
+      renderDoughnut('expenseCatChart', expMap, 'expenseCatChartInstance');
+      renderDoughnut('revenueCatChart', revMap, 'revenueCatChartInstance');
+    }
+
+    /* ── RENDER ตารางสรุปรายปี ── */
+    function renderYearlyTable(yearly, monthly) {
+      const el = document.getElementById('yearlyTable');
+      if (!el) return;
+      const years = Object.keys(yearly).sort((a, b) => b - a);
+      if (!years.length) { el.innerHTML = '<div class="loading-overlay">ยังไม่มีข้อมูล</div>'; return; }
+
+      const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+      el.innerHTML = `
+    <table>
+      <thead><tr>
+        <th style="width:24px"></th><th>ปี</th><th style="text-align:right">รายรับ</th><th style="text-align:right">รายจ่าย</th><th style="text-align:right">กำไร/ขาดทุน</th>
+      </tr></thead>
+      <tbody>
+        ${years.map(y => {
+        const row = yearly[y];
+        const profit = row.income - row.expense;
+        const monthsInYear = Object.keys(monthly || {})
+          .filter(mk => mk.startsWith(y + '-'))
+          .sort((a, b) => b.localeCompare(a));
+        const monthRows = monthsInYear.map(mk => {
+          const mRow = monthly[mk];
+          const mProfit = mRow.income - mRow.expense;
+          const monthNum = parseInt(mk.split('-')[1]) - 1;
+          return `<tr class="year-detail-row year-detail-${y}" style="display:none;background:var(--cream-warm)">
+              <td></td>
+              <td style="padding-left:28px;font-size:12px;color:var(--ink-mid)">${monthNames[monthNum]} ${y}</td>
+              <td style="text-align:right;font-size:13px" class="income">${fmtMoney(mRow.income)}</td>
+              <td style="text-align:right;font-size:13px" class="expense">${fmtMoney(mRow.expense)}</td>
+              <td style="text-align:right;font-size:13px;font-weight:600;color:${mProfit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtMoney(mProfit)}</td>
+            </tr>`;
+        }).join('');
+        return `<tr style="cursor:pointer" onclick="toggleYearRow('${y}', this)">
+            <td><span class="year-toggle-icon" style="display:inline-block;transition:transform .15s">▶</span></td>
+            <td>${y}</td>
+            <td style="text-align:right" class="income">${fmtMoney(row.income)}</td>
+            <td style="text-align:right" class="expense">${fmtMoney(row.expense)}</td>
+            <td style="text-align:right;font-weight:700;color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtMoney(profit)}</td>
+          </tr>${monthRows}`;
+      }).join('')}
+      </tbody>
+    </table>`;
+    }
+
+    function toggleYearRow(year, trEl) {
+      const rows = document.querySelectorAll(`.year-detail-${year}`);
+      const icon = trEl.querySelector('.year-toggle-icon');
+      const isOpen = rows.length && rows[0].style.display !== 'none';
+      rows.forEach(r => { r.style.display = isOpen ? 'none' : 'table-row'; });
+      if (icon) icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
     }
 
     /* ── RENDER MONTHLY CHART ── */
-    function renderMonthlyChart() {
-      const monthlyData = {};
+    function renderMonthlyChart(monthly, selectedYear) {
+      if (!monthly) ({ monthly } = buildFinanceAggregates());
+      if (!selectedYear) selectedYear = document.getElementById('yearFilter') ? document.getElementById('yearFilter').value : 'all';
 
-      // Process expense data
-      db.expense.forEach(r => {
-        const dateStr = r['วันที่'] || '';
-        if (!dateStr) return;
-        const month = dateStr.substring(0, 7); // YYYY-MM format
-        if (!monthlyData[month]) monthlyData[month] = { income: 0, expense: 0 };
+      let months = Object.keys(monthly).sort();
+      if (selectedYear !== 'all') {
+        months = months.filter(m => m.startsWith(selectedYear + '-'));
+      }
 
-        const qty = parseFloat(r['จำนวนหน่วย']) || 0;
-        const price = parseFloat(r['ราคา']) || 0;
-        monthlyData[month].expense += (qty * price || price);
-      });
-
-      // Process revenue data
-      db.revenue.forEach(r => {
-        const dateStr = r['วันที่'] || '';
-        if (!dateStr) return;
-        const month = dateStr.substring(0, 7);
-        if (!monthlyData[month]) monthlyData[month] = { income: 0, expense: 0 };
-
-        const qty = parseFloat(r['จำนวนตัว']) || 0;
-        const price = parseFloat(r['ราคาไก่']) || 0;
-        monthlyData[month].income += (qty * price || price);
-      });
-
-      // Sort and prepare data
-      const months = Object.keys(monthlyData).sort();
       const labels = months.map(m => {
         const [year, month] = m.split('-');
         const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
         const monthNum = parseInt(month) - 1;
-        const yearBE = parseInt(year) + 543;
-        return `${monthNames[monthNum]} ${yearBE}`;
+        return `${monthNames[monthNum]} ${year}`;
       });
 
-      const incomeData = months.map(m => monthlyData[m].income);
-      const expenseData = months.map(m => monthlyData[m].expense);
+      const incomeData = months.map(m => monthly[m].income);
+      const expenseData = months.map(m => monthly[m].expense);
+      const profitData = months.map(m => monthly[m].income - monthly[m].expense);
 
       // Get or create chart
       const ctx = document.getElementById('monthlyChart');
@@ -1125,11 +1382,11 @@
 
       // Create new chart
       window.monthlyChartInstance = new Chart(ctx, {
-        type: 'bar',
         data: {
           labels: labels,
           datasets: [
             {
+              type: 'bar',
               label: '💰 รายรับ',
               data: incomeData,
               backgroundColor: '#10B981',
@@ -1138,12 +1395,25 @@
               borderRadius: 6,
             },
             {
+              type: 'bar',
               label: '💸 รายจ่าย',
               data: expenseData,
               backgroundColor: '#EF4444',
               borderColor: '#DC2626',
               borderWidth: 1,
               borderRadius: 6,
+            },
+            {
+              type: 'line',
+              label: '📈 กำไรสุทธิ',
+              data: profitData,
+              borderColor: '#3B82F6',
+              backgroundColor: '#3B82F6',
+              borderWidth: 2,
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: '#3B82F6',
+              fill: false,
             }
           ]
         },
@@ -1185,19 +1455,9 @@
     }
     function renderRecentTable() {
       const recent = [
-        ...db.expense.slice(-50).map(r => {
-          const qty = parseFloat(r['จำนวนหน่วย']) || 0;
-          const price = parseFloat(r['ราคา']) || 0;
-          const total = qty * price || price;
-          return { type: 'expense', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: total };
-        }),
-        ...db.revenue.slice(-50).map(r => {
-          const qty = parseFloat(r['จำนวนตัว']) || 0;
-          const price = parseFloat(r['ราคาไก่']) || 0;
-          const total = qty * price || price;
-          return { type: 'revenue', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: total };
-        }),
-      ].sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 100);
+        ...db.expense.map(r => ({ type: 'expense', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: getExpenseAmount(r), _d: parseRowDate(r['วันที่']) })),
+        ...db.revenue.map(r => ({ type: 'revenue', date: r['วันที่'] || '', desc: r['รายการ'] || '', amount: getRevenueAmount(r), _d: parseRowDate(r['วันที่']) })),
+      ].sort((a, b) => (b._d ? b._d.getTime() : 0) - (a._d ? a._d.getTime() : 0)).slice(0, 100);
 
       if (!recent.length) { document.getElementById('recentTable').innerHTML = '<div class="loading-overlay">ยังไม่มีรายการ</div>'; return; }
       document.getElementById('recentTable').innerHTML = `
@@ -1286,7 +1546,7 @@
       };
       await submitToSheet('EggHatchingKitData', row, 'h_alert');
       db.hatch.push(row);
-      renderStats();
+      try { renderStats(); } catch (e) { console.error('renderStats error:', e); }
       updateNextId();
     }
 
@@ -1301,8 +1561,8 @@
       };
       await submitToSheet('Expense', row, 'e_alert');
       db.expense.push(row);
-      renderStats();
-      renderRecentTable();
+      try { renderStats(); } catch (e) { console.error('renderStats error:', e); }
+      try { renderRecentTable(); } catch (e) { console.error('renderRecentTable error:', e); }
       document.getElementById('e_date').value = '';
       document.getElementById('e_item').value = '';
       document.getElementById('e_unit').value = '';
@@ -1328,8 +1588,8 @@
       };
       await submitToSheet('Revenue', row, 'r_alert');
       db.revenue.push(row);
-      renderStats();
-      renderRecentTable();
+      try { renderStats(); } catch (e) { console.error('renderStats error:', e); }
+      try { renderRecentTable(); } catch (e) { console.error('renderRecentTable error:', e); }
       document.getElementById('r_date').value = '';
       document.getElementById('r_sex').value = '';
       document.getElementById('r_item').value = '';
